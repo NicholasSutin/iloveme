@@ -1,0 +1,14 @@
+# macOS
+.DS_Store
+
+# Xcode build output
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+
+# screentime/ is a standalone CLI: keep the source, not the artifacts or the data
+screentime/stpoll
+screentime/StPoll.app/
+screentime/data/

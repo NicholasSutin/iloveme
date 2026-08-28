@@ -1,0 +1,70 @@
+import Foundation
+import Security
+
+/// Keychain-backed token storage. No network involved.
+struct TokenStore: Sendable {
+    static let shared = TokenStore(service: "com.nick.iloveme.oauth")
+
+    let service: String
+
+    private func query(_ account: String) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: service,
+         kSecAttrAccount as String: account]
+    }
+
+    // MARK: Raw string access
+
+    func save(_ token: String, account: String) throws {
+        var q = query(account)
+        SecItemDelete(q as CFDictionary)
+        q[kSecValueData as String] = Data(token.utf8)
+        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+        let status = SecItemAdd(q as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainError(status: status) }
+    }
+
+    func read(account: String) -> String? {
+        var q = query(account)
+        q[kSecReturnData as String] = true
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        var out: CFTypeRef?
+        guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess,
+              let data = out as? Data else { return nil }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Presence only — no payload returned, nothing to decode.
+    func exists(account: String) -> Bool {
+        var q = query(account)
+        q[kSecMatchLimit as String] = kSecMatchLimitOne
+        return SecItemCopyMatching(q as CFDictionary, nil) == errSecSuccess
+    }
+
+    func delete(account: String) {
+        SecItemDelete(query(account) as CFDictionary)
+    }
+
+    // MARK: Tokens, keyed by service
+
+    func saveToken(_ token: OAuthToken, for kind: ServiceKind) throws {
+        let data = try JSONEncoder().encode(token)
+        try save(String(decoding: data, as: UTF8.self), account: kind.rawValue)
+    }
+
+    func token(for kind: ServiceKind) -> OAuthToken? {
+        guard let raw = read(account: kind.rawValue) else { return nil }
+        return try? JSONDecoder().decode(OAuthToken.self, from: Data(raw.utf8))
+    }
+
+    /// Existence check that skips returning and decoding the payload — the launch
+    /// path only needs to know whether a card starts connected.
+    func hasToken(for kind: ServiceKind) -> Bool { exists(account: kind.rawValue) }
+
+    func clearToken(for kind: ServiceKind) { delete(account: kind.rawValue) }
+}
+
+struct KeychainError: LocalizedError {
+    let status: OSStatus
+    var errorDescription: String? { "Keychain error \(status)" }
+}
