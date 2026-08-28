@@ -7,7 +7,7 @@ struct GitHubProvider: ServiceProvider {
     let kind = ServiceKind.github
 
     let config = OAuthConfig(
-        clientID: "",          // paste from the portal — see docs/registration.md
+        clientID: "Ov23li4emclbieX0XrC3",          // paste from the portal — see docs/registration.md
         authorize: "https://github.com/login/device/code",
         token: "https://github.com/login/oauth/access_token",
         scopes: ["read:user"])

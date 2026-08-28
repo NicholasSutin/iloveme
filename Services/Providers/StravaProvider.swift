@@ -6,7 +6,7 @@ struct StravaProvider: ServiceProvider {
     let kind = ServiceKind.strava
 
     let config = OAuthConfig(
-        clientID: "",          // paste from the portal — see docs/registration.md
+        clientID: "175321",          // paste from the portal — see docs/registration.md
         authorize: "https://www.strava.com/oauth/mobile/authorize",
         token: "https://www.strava.com/oauth/token",
         scopes: ["activity:read_all"])

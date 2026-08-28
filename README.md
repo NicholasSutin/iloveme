@@ -138,16 +138,41 @@ Endpoints verified against official docs — see docs/api-notes.md (injection-sc
 Reality check: Strava/Notion/Pinterest REQUIRE client_secret at token exchange (no PKCE
 public clients). Only GitHub is secret-free, via the device flow.
 
-- GitHub: device flow fully implemented (`Services/Auth/GitHubDeviceFlow.swift`). Needs only a
-  client ID from app registration (docs/registration.md) to go live.
-- Notion: token paste-in path implemented (personal internal-integration token; no OAuth,
-  favorites not exposed by API → recent-edited top 5). Integration not yet created (per instruction).
-- Strava/Pinterest: data clients implemented; token exchange gated on the Cloudflare Worker
-  proxy (LIBRARIES.md notes). Client registrations pending — exact values in docs/registration.md.
+| Service | Client ID | Connects today? | Blocked on |
+|---|---|---|---|
+| **GitHub** | in place | **yes** — device flow, no secret | nothing |
+| **Notion** | n/a | yes, once you paste a token | creating the internal integration |
+| **Strava** | in place | no | Worker proxy + callback domain (below) |
+| **Pinterest** | — | no | Pinterest app review (Trial), then paste a test token |
+
+- **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
+- **Notion**: paste-in path implemented. Use an internal-integration token, NOT OAuth —
+  reasoning in docs/registration.md.
+- **Strava**: data client complete; auth entirely missing. Callback domain is currently
+  `localhost`, which is a placeholder that cannot match `iloveme://oauth` — see
+  docs/registration.md before wiring.
+- **Pinterest**: data client complete. Trial access can mint a test token without OAuth,
+  so it needs `.pastedToken` rather than the Worker.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 
+### The Worker proxy (deferred, not built)
+
+Three services need a `client_secret` holder. That is one Worker with three routes, not
+three services' worth of work. When it is built it goes in **`worker/` in this repo**:
+Xcode cannot see it (only App/, Services/, Shared/, Widget/ are synchronized roots), its
+routes mirror the providers 1:1 so changes are paired, and secrets live in Cloudflare via
+`wrangler secret put` rather than in source. See LIBRARIES.md for the two traps (proxy
+rather than vend; the Worker URL is the open door — App Attest is the only real control).
+
+Wiring it up also needs an app-side change: `ConnectAffordance` currently has
+`.deviceFlow` / `.pastedToken` / `.unavailable`, and a redirect flow needs a fourth case
+plus a `connectWebRedirect()` path on `ServiceCard`. `AuthSession` (already written) does
+the browser leg and returns the PKCE verifier.
+
 ### Not built (deliberate)
-- Worker proxy (user deferred)
-- Notion platform integration (user deferred)
-- GitHub token refresh (unchecked "expire tokens" recommended instead)
+- Worker proxy (deferred) — blocks Strava only; Notion and Pinterest have paste-in paths
+- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. Harmless for
+  Notion/Pinterest/GitHub (long-lived or non-expiring tokens), but Strava access tokens
+  live ~6 hours, so Strava cannot work without refresh plumbing in `ServiceCard.load()`.
+- Notion OAuth (access token chosen instead — see docs/registration.md)
