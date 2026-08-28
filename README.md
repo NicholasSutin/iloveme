@@ -26,7 +26,8 @@ Services/                app-target logic, no SwiftUI except where noted
   Health/                StepsModel (HealthKit)
 Shared/                  member of BOTH targets — StepSnapshot, Formatting
 Widget/                  WidgetKit extension; reads only the snapshot
-screentime/              standalone macOS CLI, in no Xcode target (see below)
+screentime/              standalone macOS CLI, in no Xcode target — see
+                         screentime/README.md (dead end, kept for the record)
 ```
 
 Dependency direction is one way: `Core` knows nothing; `Networking`/`Auth` know

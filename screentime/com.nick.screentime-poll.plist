@@ -1,20 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  NOT INSTALLED, and installing it will not give you iPhone Screen Time.
+  Kept as the record of how stpoll was meant to run. See screentime/README.md
+  for why the cross-device path is a dead end.
+-->
 <plist version="1.0">
 <dict>
     <key>Label</key>
     <string>com.nick.screentime-poll</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/nick/Projects/experiments/sleep/screentime/stpoll</string>
+        <string>/Users/nick/Projects/experiments/iloveme/screentime/stpoll</string>
     </array>
     <key>StartInterval</key>
     <integer>900</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
-    <string>/Users/nick/Projects/experiments/sleep/screentime/data/usage.jsonl</string>
+    <string>/Users/nick/Projects/experiments/iloveme/screentime/data/usage.jsonl</string>
     <key>StandardErrorPath</key>
-    <string>/Users/nick/Projects/experiments/sleep/screentime/data/poll.err</string>
+    <string>/Users/nick/Projects/experiments/iloveme/screentime/data/poll.err</string>
 </dict>
 </plist>
