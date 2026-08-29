@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { privacy } from "./privacy";
 import { strava } from "./strava";
 
 /**
@@ -12,6 +13,10 @@ import { strava } from "./strava";
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/health", (c) => c.json({ ok: true, environment: c.env.ENVIRONMENT }));
+
+// Public legal page. Required by Pinterest's app review, and served from the app's
+// own hostname rather than separate static hosting.
+app.route("/", privacy);
 
 app.route("/strava", strava);
 

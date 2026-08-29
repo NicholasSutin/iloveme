@@ -72,7 +72,13 @@ of the four by a wide margin: Worker + refresh + a new `ConnectAffordance` case.
 
 ---
 
-## Pinterest — NOT STARTED
+## Pinterest
+
+**Privacy policy URL: `https://iloveme.nicholassutin.com/privacy`** — served by the
+Worker (`worker/src/privacy.ts`). It must be DEPLOYED before Pinterest will accept
+the registration; `npm run deploy:production` in `worker/`, which needs no secrets.
+Set a real `CONTACT_EMAIL` in `worker/wrangler.jsonc` first — it is shown publicly.
+ — NOT STARTED
 
 https://developers.pinterest.com/apps/
 - Create app: ILoveMe, personal/prototyping purpose

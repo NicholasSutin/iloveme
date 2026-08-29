@@ -18,7 +18,9 @@
   // Non-secret config only. Secrets go through `wrangler secret put` — see README.
   "vars": {
     "ENVIRONMENT": "staging",
-    "APP_REDIRECT_SCHEME": "iloveme"
+    "APP_REDIRECT_SCHEME": "iloveme",
+    // ⚠️ Shown publicly on /privacy. Replace before deploying production.
+    "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
   },
 
   "env": {
@@ -26,7 +28,8 @@
       "name": "iloveme-app",
       "vars": {
         "ENVIRONMENT": "staging",
-        "APP_REDIRECT_SCHEME": "iloveme"
+        "APP_REDIRECT_SCHEME": "iloveme",
+        "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
       }
     },
 
@@ -41,7 +44,9 @@
       // repeated here or it is simply absent in production.
       "vars": {
         "ENVIRONMENT": "production",
-        "APP_REDIRECT_SCHEME": "iloveme"
+        "APP_REDIRECT_SCHEME": "iloveme",
+        // ⚠️ Public on iloveme.nicholassutin.com/privacy — set a real address.
+        "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
       }
     }
   }

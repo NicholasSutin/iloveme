@@ -27,6 +27,7 @@ routing readable if providers are added later.
 ```
 src/index.ts    app wiring, /health, 404 + error handlers
 src/auth.ts     timing-safe shared-token middleware
+src/privacy.ts  public privacy policy page
 src/strava.ts   Strava exchange / refresh / callback
 ```
 
@@ -86,6 +87,7 @@ repeated per environment or it is simply absent there.
 | Route | Auth | Purpose |
 |---|---|---|
 | `GET /health` | none | liveness; echoes the environment |
+| `GET /privacy` | none | public privacy policy (Pinterest review requires it) |
 | `GET /strava/callback` | none | 302 → `iloveme://oauth?code=…` |
 | `POST /strava/exchange` | bearer | `{code}` → Strava token JSON |
 | `POST /strava/refresh` | bearer | `{refresh_token}` → fresh token JSON |
@@ -98,6 +100,28 @@ because `ASWebAuthenticationSession` can intercept custom schemes but never http
 **It may not be needed at all.** Run the callback-domain experiment in
 `docs/registration.md` first: if Strava accepts a bare `iloveme` callback domain,
 the redirect stays entirely in the app and this route can be deleted.
+
+## Deploying for the Pinterest privacy-policy URL
+
+Pinterest will not accept an app registration without a reachable privacy policy.
+That page is served here, so this Worker must be deployed before Pinterest can be
+registered — even though nothing about Pinterest routes through it.
+
+**No secrets are required for this.** `/privacy` and `/health` never touch them, and
+the auth middleware only runs on `/strava/*`. Deploy first, add secrets when Strava
+is actually wired.
+
+```bash
+# 1. ⚠️ set a real CONTACT_EMAIL in wrangler.jsonc first — it is shown publicly
+# 2. deploy
+npm run deploy:production
+# 3. the policy URL to give Pinterest:
+#    https://iloveme.nicholassutin.com/privacy
+```
+
+`nicholassutin.com` is already on Cloudflare (verified 2026-08-28) and
+`iloveme.nicholassutin.com` is unused, so `custom_domain: true` will create the DNS
+record itself. Nothing needs doing by hand.
 
 ## Security posture
 
@@ -131,6 +155,9 @@ Both environments pass `wrangler deploy --dry-run`, and `tsc --noEmit` is clean.
 ## Not done
 
 - Never deployed — no Cloudflare resources created.
+- `CONTACT_EMAIL` is still the placeholder. It appears publicly on `/privacy`.
+- The privacy policy is written to match what the app actually does, but it has not
+  been reviewed by a lawyer.
 - No rate limiting yet.
 - No App Attest verification.
 - The iOS side has no `webRedirect` affordance and no refresh plumbing, so nothing
