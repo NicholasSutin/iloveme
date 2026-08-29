@@ -19,8 +19,8 @@
   "vars": {
     "ENVIRONMENT": "staging",
     "APP_REDIRECT_SCHEME": "iloveme",
-    // ⚠️ Shown publicly on /privacy. Replace before deploying production.
-    "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
+    // Shown publicly on /privacy. Route it in Cloudflare Email Routing.
+    "CONTACT_EMAIL": "privacy@nicholassutin.com"
   },
 
   "env": {
@@ -29,7 +29,7 @@
       "vars": {
         "ENVIRONMENT": "staging",
         "APP_REDIRECT_SCHEME": "iloveme",
-        "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
+        "CONTACT_EMAIL": "privacy@nicholassutin.com"
       }
     },
 
@@ -45,8 +45,8 @@
       "vars": {
         "ENVIRONMENT": "production",
         "APP_REDIRECT_SCHEME": "iloveme",
-        // ⚠️ Public on iloveme.nicholassutin.com/privacy — set a real address.
-        "CONTACT_EMAIL": "SET-ME-BEFORE-DEPLOY@nicholassutin.com"
+        // Public on iloveme.nicholassutin.com/privacy.
+        "CONTACT_EMAIL": "privacy@nicholassutin.com"
       }
     }
   }

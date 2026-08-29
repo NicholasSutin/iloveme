@@ -112,11 +112,8 @@ the auth middleware only runs on `/strava/*`. Deploy first, add secrets when Str
 is actually wired.
 
 ```bash
-# 1. ⚠️ set a real CONTACT_EMAIL in wrangler.jsonc first — it is shown publicly
-# 2. deploy
 npm run deploy:production
-# 3. the policy URL to give Pinterest:
-#    https://iloveme.nicholassutin.com/privacy
+# then give Pinterest: https://iloveme.nicholassutin.com/privacy
 ```
 
 `nicholassutin.com` is already on Cloudflare (verified 2026-08-28) and
@@ -155,7 +152,8 @@ Both environments pass `wrangler deploy --dry-run`, and `tsc --noEmit` is clean.
 ## Not done
 
 - Never deployed — no Cloudflare resources created.
-- `CONTACT_EMAIL` is still the placeholder. It appears publicly on `/privacy`.
+- `privacy@nicholassutin.com` still needs a Cloudflare Email Routing rule, or mail
+  to the address on the published policy will bounce.
 - The privacy policy is written to match what the app actually does, but it has not
   been reviewed by a lawyer.
 - No rate limiting yet.
