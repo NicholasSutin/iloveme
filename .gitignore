@@ -12,3 +12,11 @@ xcuserdata/
 screentime/stpoll
 screentime/StPoll.app/
 screentime/data/
+
+# Cloudflare Worker (worker/, when it exists)
+# .dev.vars holds local secrets — client_secret for Strava et al. Ignored ahead of
+# time so it can never be staged by accident on the first `wrangler dev`.
+node_modules/
+.wrangler/
+.dev.vars
+.dev.vars.*
