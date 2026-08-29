@@ -49,7 +49,18 @@ Real constraints:
 - BGAppRefreshTask for periodic pulls.
   https://developer.apple.com/documentation/backgroundtasks/bgapprefreshtask
 
-## Cloudflare Worker as secrets proxy (deferred)
+## Cloudflare Worker as secrets proxy (deferred — decisions made 2026-08-28)
+
+**Decided, not yet built:**
+- Lives in `worker/` in this repo. Xcode cannot see it (only App/, Services/,
+  Shared/, Widget/ are synchronized roots), its routes mirror the providers 1:1, and
+  no secret is in source — `wrangler secret put` keeps them in Cloudflare.
+- Host it on `s5.design` (e.g. `api.s5.design`), keeping infrastructure off the
+  personal portfolio domain.
+- **Only Strava actually needs it.** Notion uses an internal-integration token and
+  Pinterest can mint a Trial test token, both without OAuth; GitHub is device flow.
+  See docs/registration.md.
+
 Right shape for the key-based services. Two traps:
 - Proxy, not vending. app→Worker→(key added)→upstream. Never return the key to the app.
   Vending is fine for hackathons/trusted devs, never for a shipped app.

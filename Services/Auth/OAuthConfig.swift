@@ -7,11 +7,14 @@ struct OAuthConfig: Sendable {
     var authorizationEndpoint: URL
     var tokenEndpoint: URL
     var scopes: [String]
-    var redirectScheme: String   // must match CFBundleURLTypes in App/Info.plist
+    /// NOT yet registered: App/Info.plist has no CFBundleURLTypes, so this scheme
+    /// does not route back to the app. Required before any redirect flow — see README.
+    var redirectScheme: String
 
     var isConfigured: Bool { !clientID.isEmpty }
 
-    /// The app's single registered callback scheme.
+    /// The scheme the app intends to use for OAuth callbacks. See the note on
+    /// `redirectScheme` above — it is not registered in Info.plist yet.
     static let redirectScheme = "iloveme"
 
     init(clientID: String = "",

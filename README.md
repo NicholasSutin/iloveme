@@ -1,7 +1,15 @@
-# ILoveMe — bare scaffold
+# ILoveMe
 
-iOS app + widget extension. Steps from HealthKit → App Group snapshot → widget.
-No features beyond that path.
+iOS app + widget extension, one screen of text cards.
+
+- **Steps** — HealthKit → App Group snapshot → Lock Screen / Home Screen widget.
+- **Four service integrations** — GitHub, Strava, Notion, Pinterest. Every data
+  client is written; only auth is outstanding. GitHub works end to end today; the
+  other three are blocked on registration or on the deferred Worker proxy. See
+  "Live wiring status" below.
+
+Adding a fifth integration is one file plus one enum case — see "Adding an
+integration".
 
 ## Layout
 
@@ -59,6 +67,17 @@ build. To confirm they were applied, read the generated file instead:
 plutil -p build/Build/Intermediates.noindex/ILoveMe.build/Debug-iphonesimulator/ILoveMe.build/DerivedSources/Entitlements-Simulated.plist
 ```
 
+### Declared but unused: HealthKit background delivery
+`App/App.entitlements` requests `com.apple.developer.healthkit.background-delivery`,
+but nothing implements it — there is no `HKObserverQuery`, no
+`enableBackgroundDelivery`, no `BGAppRefreshTask` anywhere in the tree. Steps refresh
+only when the app is foregrounded. Either wire it up (LIBRARIES.md has the doc links)
+or drop the entitlement; a declared-and-unused capability is a question at review time.
+
+Same shape: `App/Info.plist` declares
+`NSHealthClinicalHealthRecordsShareUsageDescription`, but the app reads step count
+only and never touches clinical records.
+
 ### Steps read 0 on a fresh Simulator
 Not a bug and not a sign-in problem. A Simulator is born with an empty HealthKit
 store — no pedometer, and Health data never arrives over iCloud, signed in or
@@ -92,6 +111,12 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   -project ILoveMe.xcodeproj -scheme ILoveMe -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' -derivedDataPath build build
 ```
+
+Swap `-scheme ILoveMe` for `-scheme ILoveMeWidget` to build the extension.
+
+For a pure compile check (no Health access), adding `CODE_SIGNING_ALLOWED=NO` is
+fine and faster — but the resulting build cannot talk to HealthKit, per the note
+above.
 
 ## Architecture
 
@@ -131,7 +156,28 @@ Nothing else changes. `ServiceCard`, `Dashboard`, `ServiceCardView` and
 - `TokenStore` — Keychain. Real, working
 
 Status per card: Not configured / Not connected / Connecting / Connected / error.
-OAuth redirect scheme `iloveme://oauth` registered in `App/Info.plist`.
+
+### ⚠️ Setup step NOT done: the `iloveme://` URL scheme is unregistered
+
+`App/Info.plist` has **no `CFBundleURLTypes`**, so `iloveme://oauth` will not come
+back to the app. This does not affect anything working today — GitHub's device flow
+has no redirect leg, and Notion/Pinterest paste a token — but **any redirect flow
+(i.e. Strava) fails silently until it is added**:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLName</key>
+    <string>com.nick.iloveme.oauth</string>
+    <key>CFBundleURLSchemes</key>
+    <array><string>iloveme</string></array>
+  </dict>
+</array>
+```
+
+Add it alongside the callback-domain work, not before — the experiment in
+docs/registration.md may change which scheme (or host) is actually used.
 
 ### Live wiring status (2026-08-28)
 Endpoints verified against official docs — see docs/api-notes.md (injection-screened: PASS).

@@ -1,5 +1,11 @@
 # API Notes — Strava / Notion / Pinterest / GitHub
 
+> **This is a dated research record, not current status.** Its findings were
+> verified 2026-08-28 and still hold, but the decisions taken since (which auth path
+> each service actually uses, what is registered, what works) live in
+> **docs/registration.md** and the README's "Live wiring status". Read those first;
+> come here for the underlying API facts and their sources.
+
 Researched 2026-08-28 against official docs. Target: personal iOS app (Swift, no backend yet) doing OAuth from the client. Every claim carries its source URL; anything not confirmed from an official source is marked **UNVERIFIED**.
 
 ## TL;DR
