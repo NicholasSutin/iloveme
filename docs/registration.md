@@ -1,68 +1,124 @@
-# App registrations — exact values
+# App registrations — status and exact values
 
-Everything the code needs; each portal is a ~2-minute manual task. Paste the resulting
-client ID into that service's `Services/Providers/<Name>Provider.swift`
-(`OAuthConfig(clientID: …)`). Client IDs are public — safe
-to commit. SECRETS ARE NOT: never paste a client secret into the app or repo; they
-go in the future Worker proxy (`wrangler secret put`).
+Client IDs are public and safe to commit; paste them into that service's
+`Services/Providers/<Name>Provider.swift` (`OAuthConfig(clientID: …)`).
+**Secrets are not.** They never enter the app or this repo — they go into the
+future Worker via `wrangler secret put`.
 
-## GitHub — DONE (2026-08-28). Client ID in GitHubProvider.swift; device flow live.
-## GitHub  → makes the app fully live (device flow, no secret needed)
+## Where we paused — 2026-08-28
+
+| Service | Registered | Client ID in code | Works? |
+|---|---|---|---|
+| **GitHub** | yes, device flow enabled | yes | **yes — done** |
+| **Strava** | yes | yes (`175321`) | **no — unresolved, see the experiment below** |
+| **Notion** | no | n/a | not started (needs no client ID) |
+| **Pinterest** | no | no | not started — blocked on a privacy policy + domain |
+
+---
+
+## GitHub — DONE
+
+Fully working. Device flow, no secret, no proxy. Nothing left to do.
+
 https://github.com/settings/applications/new
 - Application name: ILoveMe
 - Homepage URL: https://github.com/NicholasSutin
-- Callback URL: iloveme://oauth
-- [x] Enable Device Flow          ← required
-- [ ] Expire user access tokens   ← uncheck (no refresh plumbing yet; personal app)
-Then: copy the Client ID → `GitHubProvider.swift`. Ignore/never generate need for the secret.
+- Callback URL: `iloveme://oauth`
+- **[x] Enable Device Flow** — confirmed ticked 2026-08-28. Without it,
+  `POST /login/device/code` fails outright.
+- [ ] Expire user access tokens — left unchecked (no refresh plumbing; personal app)
 
-## Strava  (client ID useful now; token exchange still waits on the Worker)
+Client ID is in `GitHubProvider.swift`. The secret is never needed.
+
+---
+
+## Strava — REGISTERED, NOT WORKING
+
 https://www.strava.com/settings/api
 - Application name: ILoveMe
-- Category: Data Importer (any fits)
+- Category: Data Importer
 - Website: https://github.com/NicholasSutin
-- Authorization Callback Domain: localhost   ← verify in the form's hint whether a
-  bare custom scheme is allowed; docs are silent on scheme redirects for this field
-Then: copy Client ID → `StravaProvider.swift`. Leave the secret on the page —
-it will be entered ONLY into the Worker later.
+- Client ID `175321` → in `StravaProvider.swift`
+- Authorization Callback Domain: **`localhost`** ← the problem
 
-### Status 2026-08-28: Client ID in place (175321). Callback domain = `localhost`.
+### ⚠️ THE EXPERIMENT TO RUN FIRST
 
-`localhost` was accepted by the form, but it is a PLACEHOLDER and cannot work as-is.
-Strava matches `redirect_uri` against the registered callback domain, and ours is
-`iloveme://oauth` — host `oauth`, not `localhost`. Expect rejection.
+**Set the Authorization Callback Domain to `iloveme` and see if Strava accepts it.**
 
-Two ways out, cheapest first:
+That is the whole test. Two minutes in the portal, and it decides how much work
+Strava is.
 
-1. **Try callback domain = `iloveme`.** If Strava accepts a bare custom scheme, the
-   redirect stays in the app and the Worker is needed ONLY for token exchange +
-   refresh. Test this before writing any redirect machinery.
-2. **Otherwise the Worker hosts the redirect and bounces**, because
-   `ASWebAuthenticationSession` can only intercept custom schemes, never https:
-   `Strava → https://<worker>/strava/callback?code=… → 302 → iloveme://oauth?code=…`
-   Callback domain then becomes the Worker's hostname.
+Why it matters: Strava matches the `redirect_uri` against the registered callback
+domain. Ours is `iloveme://oauth`, whose host is `oauth` — which does not match
+`localhost`. As registered today the redirect will be rejected. `localhost` was
+accepted by the form, but it is a placeholder, not a working value.
 
-Also note Strava access tokens live ~6 hours, so refresh is mandatory, not optional —
-see README "Not built (deliberate)".
+- **If `iloveme` is accepted** → the browser redirect stays entirely in the app.
+  The Worker is then needed *only* for token exchange and refresh. Cheaper path.
+- **If it is rejected** → the Worker must also host the redirect and bounce to the
+  custom scheme, because `ASWebAuthenticationSession` can only intercept custom
+  schemes, never `https`:
+  `Strava → https://<worker>/strava/callback?code=… → 302 → iloveme://oauth?code=…`
+  The callback domain then becomes the Worker's hostname.
 
-## Pinterest  (expect an approval wait — Trial access is reviewed)
+Do not build any redirect machinery before running this.
+
+### Strava also needs token refresh
+
+Access tokens live **~6 hours**. `OAuthToken.isExpired` exists but nothing calls
+it, so Strava cannot work without new refresh plumbing in `ServiceCard.load()` —
+independent of the callback-domain question. This makes Strava the most expensive
+of the four by a wide margin: Worker + refresh + a new `ConnectAffordance` case.
+
+---
+
+## Pinterest — NOT STARTED
+
 https://developers.pinterest.com/apps/
 - Create app: ILoveMe, personal/prototyping purpose
-- Redirect URI: iloveme://oauth
-- Request Trial access (can read real boards/pins; 1,000 req/day cap)
-- Shortcut while waiting: the portal can mint a test token without OAuth —
-  paste-in support can be added like Notion's if wanted.
-Then: Client ID → `PinterestProvider.swift`. Secret → Worker only.
+- Redirect URI: `iloveme://oauth`
+- Request Trial access (reads real boards/pins; 1,000 req/day cap)
 
-## Notion — use the ACCESS TOKEN, not OAuth
+### Blocked on: a privacy policy at a real domain
+
+Pinterest reviews every app before granting any access, and wants a reachable
+privacy-policy URL plus a working site.
+
+**Use `nicholassutin.com`.** It is a live site with real content, which is what a
+reviewer is checking for; `s5.design` is currently empty, and a parked-looking
+domain invites a rejection round-trip on a process that is already slow and manual.
+A personal site is also the truthful representation here — this app reads Nick's
+own boards, for Nick. It matches the homepage already registered with GitHub and
+Strava.
+
+Keep `s5.design` for infrastructure if you want the separation — it is the better
+home for the Worker (`api.s5.design`) than a portfolio domain, and that keeps
+personal brand and app plumbing apart.
+
+The privacy policy itself is short for this app: read-only access, everything stays
+on device, tokens in the iOS Keychain, no analytics, no third-party sharing, and
+disconnecting in-app deletes the token. (When the Worker exists it relays token
+exchange only and stores nothing.)
+
+### Shortcut once approved
+Trial apps can mint a test token in the portal **without OAuth**. So Pinterest
+likely never needs the Worker — give `PinterestProvider` a `.pastedToken`
+affordance like Notion's and paste the test token in.
+
+---
+
+## Notion — NOT STARTED (deliberate choice recorded)
+
 notion.so/profile/integrations → **internal integration**, Read content capability
-→ share chosen pages with it → paste token into the app's Notion card.
+→ share chosen pages with it → paste the token into the app's Notion card.
+No client ID, no redirect URI, no Worker. The code path is already built.
 
-**Why not OAuth**, despite it offering per-user sign-in: Notion's token exchange
-requires `client_secret` (HTTP Basic) and the public REST API has no PKCE, so OAuth
-would put Notion behind the same Worker as Strava for zero benefit while this is a
-single-user app. OAuth also does not save the page-sharing step — both paths make you
-choose which pages the integration sees.
+**Why the access token and not OAuth**, despite OAuth offering per-user sign-in:
+Notion's token exchange requires `client_secret` over HTTP Basic and the public
+REST API has no PKCE. Choosing OAuth would put Notion behind the same deferred
+Worker as Strava, for a per-user benefit worth nothing while the user population is
+one person. OAuth also does not save the page-sharing step — both paths make you
+pick which pages the integration can see.
 
-Revisit when the app has users other than Nick. The migration is one line in
+Revisit if the app gains users other than Nick. The migration is one line in
 `NotionProvider.swift` (`.pastedToken` → `.webRedirect`) plus one Worker route.

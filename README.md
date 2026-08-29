@@ -138,21 +138,26 @@ Endpoints verified against official docs — see docs/api-notes.md (injection-sc
 Reality check: Strava/Notion/Pinterest REQUIRE client_secret at token exchange (no PKCE
 public clients). Only GitHub is secret-free, via the device flow.
 
-| Service | Client ID | Connects today? | Blocked on |
-|---|---|---|---|
-| **GitHub** | in place | **yes** — device flow, no secret | nothing |
-| **Notion** | n/a | yes, once you paste a token | creating the internal integration |
-| **Strava** | in place | no | Worker proxy + callback domain (below) |
-| **Pinterest** | — | no | Pinterest app review (Trial), then paste a test token |
+Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
+
+| Service | Registered | Client ID | Works? | Next action |
+|---|---|---|---|---|
+| **GitHub** | yes, device flow on | in place | **yes — done** | none |
+| **Strava** | yes | in place | **no** | run the callback-domain experiment |
+| **Notion** | no | n/a | no | create the internal integration, paste token |
+| **Pinterest** | no | — | no | privacy policy + domain, then Trial review |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
-- **Notion**: paste-in path implemented. Use an internal-integration token, NOT OAuth —
-  reasoning in docs/registration.md.
-- **Strava**: data client complete; auth entirely missing. Callback domain is currently
-  `localhost`, which is a placeholder that cannot match `iloveme://oauth` — see
-  docs/registration.md before wiring.
-- **Pinterest**: data client complete. Trial access can mint a test token without OAuth,
-  so it needs `.pastedToken` rather than the Worker.
+  "Enable Device Flow" confirmed ticked — without it the code request fails outright.
+- **Strava**: data client complete; auth entirely missing, and **not known to work**.
+  The callback domain is `localhost`, which cannot match `iloveme://oauth`. There is a
+  two-minute portal experiment that decides how much work Strava is — run it before
+  building anything. See docs/registration.md.
+- **Notion**: paste-in path implemented and ready. Use an internal-integration token,
+  NOT OAuth — reasoning recorded in docs/registration.md.
+- **Pinterest**: data client complete. Blocked on a privacy policy at a real domain
+  before Pinterest will review for Trial. Once approved, Trial can mint a test token
+  without OAuth, so it needs a `.pastedToken` affordance rather than the Worker.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 
