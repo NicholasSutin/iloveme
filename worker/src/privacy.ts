@@ -1,51 +1,43 @@
-import { Hono } from "hono";
+import { shell } from "./layout";
 
 /**
- * Static privacy policy, served from the app's own hostname.
+ * Public privacy policy.
  *
- * Pinterest (and any future app review) requires a reachable privacy policy URL.
- * It lives here rather than on separate hosting because this Worker already owns
- * iloveme.nicholassutin.com — no extra project, no extra deploy target.
+ * Pinterest's app review requires a reachable privacy-policy URL, and it is
+ * served from the app's own hostname rather than separate static hosting because
+ * this Worker already owns it.
  *
- * Self-contained: no external CSS, fonts or scripts.
+ * Written against what the app actually does, including the awkward parts: the
+ * Strava relay does transit codes and tokens, and it does log request metadata.
+ * Both are stated rather than glossed as "we never see your data".
  */
 const EFFECTIVE_DATE = "28 August 2026";
 
-function page(contactEmail: string): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Privacy Policy — ILoveMe</title>
-<style>
-  :root { color-scheme: light dark; --fg:#16181d; --muted:#5b6270; --bg:#fff; --rule:#e4e6eb; }
-  @media (prefers-color-scheme: dark) {
-    :root { --fg:#e8eaed; --muted:#a0a6b3; --bg:#14161a; --rule:#2b2f37; }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 2.5rem 1.25rem 5rem; background: var(--bg); color: var(--fg);
-    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  }
-  main { max-width: 42rem; margin: 0 auto; }
-  h1 { font-size: 1.75rem; margin: 0 0 .35rem; letter-spacing: -.02em; }
-  h2 { font-size: 1.05rem; margin: 2.25rem 0 .6rem; letter-spacing: -.01em; }
-  .meta { color: var(--muted); font-size: .9rem; margin: 0 0 2rem; padding-bottom: 1.25rem;
-          border-bottom: 1px solid var(--rule); }
-  ul { padding-left: 1.15rem; }
-  li { margin: .3rem 0; }
-  a { color: inherit; text-underline-offset: 2px; }
-  code { font-size: .9em; background: color-mix(in srgb, var(--fg) 8%, transparent);
-         padding: .1em .35em; border-radius: 4px; }
-  footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--rule);
-           color: var(--muted); font-size: .875rem; }
-</style>
-</head>
-<body>
-<main>
+const CSS = `
+.policy{padding:1.5rem 0 0}
+.meta{color:var(--muted);font-size:.9rem;margin:0 0 2rem;padding-bottom:1.25rem;
+  border-bottom:1px solid var(--rule)}
+.policy h2:first-of-type{margin-top:1.5rem}
+`;
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export function privacyPage(contactEmail: string): string {
+  const email = escapeHtml(contactEmail);
+  return shell({
+    title: "Privacy Policy — ILoveMe",
+    description: "How the ILoveMe iPhone app handles your health and connected-service data.",
+    css: CSS,
+    body: `
+<main class="wrap policy">
   <h1>Privacy Policy</h1>
-  <p class="meta">ILoveMe for iOS · Effective ${EFFECTIVE_DATE}</p>
+  <p class="meta">ILoveMe for iOS &middot; Effective ${EFFECTIVE_DATE}</p>
 
   <p>ILoveMe is a personal dashboard app. It shows your step count alongside data from
   services you choose to connect. It has no accounts, no analytics, and no advertising.</p>
@@ -115,19 +107,7 @@ function page(contactEmail: string): string {
   <p>If this policy changes, the effective date above changes with it.</p>
 
   <h2>Contact</h2>
-  <p>Questions about this policy: <a href="mailto:${contactEmail}">${contactEmail}</a></p>
-
-  <footer>ILoveMe is an independent personal project. It is not affiliated with,
-  endorsed by, or sponsored by Strava, GitHub, Notion, Pinterest or Apple.</footer>
-</main>
-</body>
-</html>`;
+  <p>Questions about this policy: <a href="mailto:${email}">${email}</a></p>
+</main>`,
+  });
 }
-
-export const privacy = new Hono<{ Bindings: Env }>();
-
-privacy.get("/privacy", (c) =>
-  c.html(page(c.env.CONTACT_EMAIL), 200, {
-    "cache-control": "public, max-age=3600",
-  }),
-);

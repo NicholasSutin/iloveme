@@ -26,8 +26,10 @@ routing readable if providers are added later.
 
 ```
 src/index.ts    app wiring, /health, 404 + error handlers
+src/layout.ts   shared HTML shell + design tokens for the public pages
+src/home.ts     homepage
+src/privacy.ts  privacy policy
 src/auth.ts     timing-safe shared-token middleware
-src/privacy.ts  public privacy policy page
 src/strava.ts   Strava exchange / refresh / callback
 ```
 
@@ -86,6 +88,7 @@ repeated per environment or it is simply absent there.
 
 | Route | Auth | Purpose |
 |---|---|---|
+| `GET /` | none | homepage |
 | `GET /health` | none | liveness; echoes the environment |
 | `GET /privacy` | none | public privacy policy (Pinterest review requires it) |
 | `GET /strava/callback` | none | 302 → `iloveme://oauth?code=…` |
@@ -120,6 +123,19 @@ npm run deploy:production
 `iloveme.nicholassutin.com` is unused, so `custom_domain: true` will create the DNS
 record itself. Nothing needs doing by hand.
 
+## The public pages
+
+`/` and `/privacy` share one shell (`src/layout.ts`) so they cannot drift apart.
+Fully self-contained — no external CSS, fonts, scripts or images, so there is one
+request and nothing to block. Light and dark both come from `prefers-color-scheme`.
+
+The homepage is deliberately honest: no App Store badge, no screenshots that do not
+exist, no invented testimonials. The card preview is hand-built from the same visual
+rules the iOS app uses, so it shows the real UI rather than a different product.
+
+Both pages send `cache-control: public, max-age=3600`. Worth remembering while
+iterating — a browser will happily serve the old page for an hour after a deploy.
+
 ## Security posture
 
 The `Authorization: Bearer <APP_SHARED_TOKEN>` gate is a **speed bump, not access
@@ -152,8 +168,6 @@ Both environments pass `wrangler deploy --dry-run`, and `tsc --noEmit` is clean.
 ## Not done
 
 - Never deployed — no Cloudflare resources created.
-- `privacy@nicholassutin.com` still needs a Cloudflare Email Routing rule, or mail
-  to the address on the published policy will bounce.
 - The privacy policy is written to match what the app actually does, but it has not
   been reviewed by a lawyer.
 - No rate limiting yet.

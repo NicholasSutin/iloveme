@@ -213,9 +213,10 @@ Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
 tokens. See `worker/README.md` for setup, secrets, environments and routes.
 
 Hono on Cloudflare Workers. Staging deploys as `iloveme-app`; production as `iloveme`
-on `iloveme.nicholassutin.com`. Routes: `/health`, `/privacy` (the public policy page
-Pinterest's review requires), `/strava/callback` (public 302 to the app's custom
-scheme), and bearer-gated `/strava/exchange` and `/strava/refresh`.
+on `iloveme.nicholassutin.com`. Routes: `/` (homepage), `/privacy` (the public
+policy page Pinterest's review requires), `/health`, `/strava/callback` (public 302
+to the app's custom scheme), and bearer-gated `/strava/exchange` and
+`/strava/refresh`.
 
 **Pinterest is blocked on deploying this**, not on Strava: its review needs a live
 privacy-policy URL, which is `/privacy` here. That deploy needs no secrets.
