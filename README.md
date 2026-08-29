@@ -207,14 +207,22 @@ Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 
-### The Worker proxy (deferred, not built)
+### The Worker proxy — scaffolded in `worker/`, never deployed
 
-Three services need a `client_secret` holder. That is one Worker with three routes, not
-three services' worth of work. When it is built it goes in **`worker/` in this repo**:
-Xcode cannot see it (only App/, Services/, Shared/, Widget/ are synchronized roots), its
-routes mirror the providers 1:1 so changes are paired, and secrets live in Cloudflare via
-`wrangler secret put` rather than in source. See LIBRARIES.md for the two traps (proxy
-rather than vend; the Worker URL is the open door — App Attest is the only real control).
+**Only Strava needs it.** GitHub is device flow; Notion and Pinterest use pasted
+tokens. See `worker/README.md` for setup, secrets, environments and routes.
+
+Hono on Cloudflare Workers. Staging deploys as `iloveme-app`; production as `iloveme`
+on `iloveme.nicholassutin.com`. Routes: `/health`, `/strava/callback` (public 302 to
+the app's custom scheme), and bearer-gated `/strava/exchange` and `/strava/refresh`.
+Verified locally against `wrangler dev` — including a real Strava round trip — but
+never deployed and no Cloudflare resources created.
+
+Xcode cannot see `worker/`:
+only App/, Services/, Shared/ and Widget/ are synchronized roots. Confirmed by
+building both targets with an invalid `.swift` file planted in `worker/src/` — both
+succeeded and it never reached a compile step. Secrets live in Cloudflare via
+`wrangler secret put`, never in source.
 
 Wiring it up also needs an app-side change: `ConnectAffordance` currently has
 `.deviceFlow` / `.pastedToken` / `.unavailable`, and a redirect flow needs a fourth case

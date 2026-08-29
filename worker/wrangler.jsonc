@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Both environments are named explicitly, because wrangler warns (rightly) when
+  // a deploy does not state its target. The base `name` matches staging, so an
+  // accidental bare `wrangler deploy` can only ever land on staging.
+  "name": "iloveme-app",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "observability": {
+    "enabled": true,
+    "logs": { "head_sampling_rate": 1 },
+    "traces": { "enabled": true, "head_sampling_rate": 0.01 }
+  },
+
+  // Non-secret config only. Secrets go through `wrangler secret put` — see README.
+  "vars": {
+    "ENVIRONMENT": "staging",
+    "APP_REDIRECT_SCHEME": "iloveme"
+  },
+
+  "env": {
+    "staging": {
+      "name": "iloveme-app",
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "APP_REDIRECT_SCHEME": "iloveme"
+      }
+    },
+
+    "production": {
+      "name": "iloveme",
+      // custom_domain: true makes Cloudflare create/manage the DNS record and
+      // route the apex of this hostname to the Worker. The zone
+      // nicholassutin.com must already exist in this Cloudflare account.
+      "routes": [{ "pattern": "iloveme.nicholassutin.com", "custom_domain": true }],
+
+      // `vars` are NOT inherited by named environments — every key must be
+      // repeated here or it is simply absent in production.
+      "vars": {
+        "ENVIRONMENT": "production",
+        "APP_REDIRECT_SCHEME": "iloveme"
+      }
+    }
+  }
+}

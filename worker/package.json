@@ -1,0 +1,22 @@
+{
+  "name": "iloveme-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --env staging",
+    "types": "wrangler types",
+    "typecheck": "tsc --noEmit",
+    "check": "wrangler deploy --dry-run --env staging",
+    "deploy:staging": "wrangler deploy --env staging",
+    "deploy:production": "wrangler deploy --env production"
+  },
+  "dependencies": {
+    "hono": "^4.13.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260829.1",
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.127.1"
+  }
+}

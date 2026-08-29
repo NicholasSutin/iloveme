@@ -51,12 +51,15 @@ Real constraints:
 
 ## Cloudflare Worker as secrets proxy (deferred — decisions made 2026-08-28)
 
-**Decided, not yet built:**
+**Scaffolded 2026-08-28 in `worker/` — see worker/README.md. Never deployed.**
+- Hono (zero-dep, ~14 kB, Workers-native). Astro/Svelte are site frameworks and this
+  has no UI — three JSON routes and one redirect.
 - Lives in `worker/` in this repo. Xcode cannot see it (only App/, Services/,
   Shared/, Widget/ are synchronized roots), its routes mirror the providers 1:1, and
   no secret is in source — `wrangler secret put` keeps them in Cloudflare.
-- Host it on `s5.design` (e.g. `api.s5.design`), keeping infrastructure off the
-  personal portfolio domain.
+- Hosted at `iloveme.nicholassutin.com` (production) and `iloveme-app` (staging).
+  Chosen over s5.design because the callback URL is visible to the user mid-OAuth,
+  which makes it user-facing rather than pure infrastructure.
 - **Only Strava actually needs it.** Notion uses an internal-integration token and
   Pinterest can mint a Trial test token, both without OAuth; GitHub is device flow.
   See docs/registration.md.
