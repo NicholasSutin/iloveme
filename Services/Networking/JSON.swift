@@ -18,6 +18,10 @@ enum JSON {
 
     static func array(_ any: Any?) -> [[String: Any]] { any as? [[String: Any]] ?? [] }
 
+    /// Array of bare strings, as in Pinterest's `pin_thumbnail_urls`. Distinct from
+    /// `array(_:)`, which expects objects and would yield `[]` here.
+    static func strings(_ any: Any?) -> [String] { any as? [String] ?? [] }
+
     /// First non-empty string among the given keys, else nil.
     static func firstText(_ object: [String: Any], _ keys: String...) -> String? {
         for key in keys {

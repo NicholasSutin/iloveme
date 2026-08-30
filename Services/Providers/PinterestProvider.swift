@@ -59,7 +59,41 @@ struct PinterestProvider: ServiceProvider {
 
     struct Board: Sendable {
         var name: String
-        var pins: [String]
+        /// The board's true size, from `pin_count` — not the number of pins fetched
+        /// below, which is one capped page of them.
+        var pinCount: Int
+        var pins: [Pin]
+        /// Both arrive with the board itself, so a visual board list costs the single
+        /// `/boards` request and none of the per-board fan-out.
+        var coverURL: URL?
+        var thumbnailURLs: [URL]
+    }
+
+    struct Pin: Sendable {
+        var title: String
+        /// nil for video pins, which carry no `images` at all.
+        var image: PinImage?
+    }
+
+    /// Pinterest publishes each image pin at four fixed sizes. Kept whole rather
+    /// than reduced to one URL here, because a list thumbnail and a full-screen
+    /// view want different ones and all four arrive in the same payload.
+    ///
+    /// The URLs are public CDN (`i.pinimg.com`) and need no `Authorization` header,
+    /// so a view can hand one straight to `AsyncImage` — verified 2026-08-30, see
+    /// docs/api-notes.md §3.4b.
+    struct PinImage: Sendable {
+        /// Keyed by Pinterest's own size names: `150x150`, `400x300`, `600x`, `1200x`.
+        var sizes: [String: URL]
+
+        /// First size present, walking `order`. Pinterest does not guarantee all four
+        /// on every pin, so a single hard-coded key would render blanks.
+        func url(preferring order: [String]) -> URL? {
+            order.lazy.compactMap { sizes[$0] }.first
+        }
+
+        var thumbnail: URL? { url(preferring: ["150x150", "400x300", "600x", "1200x"]) }
+        var full: URL? { url(preferring: ["1200x", "600x", "400x300", "150x150"]) }
     }
 
     // MARK: Fetch
@@ -76,21 +110,26 @@ struct PinterestProvider: ServiceProvider {
         let targets = JSON.array(JSON.object(data)["items"])
             .prefix(maxBoards)
             .enumerated()
-            .compactMap { index, board -> (Int, String, String)? in
+            .compactMap { index, board -> (Int, String, Board)? in
                 guard let id = board["id"] as? String else { return nil }
-                return (index, id, board["name"] as? String ?? "Untitled board")
+                let media = JSON.object(board, "media")
+                return (index, id, Board(
+                    name: board["name"] as? String ?? "Untitled board",
+                    pinCount: board["pin_count"] as? Int ?? 0,
+                    pins: [],
+                    coverURL: JSON.firstText(media, "image_cover_url").flatMap(URL.init(string:)),
+                    thumbnailURLs: JSON.strings(media["pin_thumbnail_urls"]).compactMap(URL.init(string:))))
             }
 
         return try await withThrowingTaskGroup(of: (Int, Board).self) { group in
-            for (index, id, name) in targets {
+            for (index, id, board) in targets {
                 group.addTask {
                     let pinData = try await HTTP.get(
                         URL(string: "\(Self.base)/boards/\(id)/pins?page_size=\(pinsPerBoard)")!,
                         bearer: token)
-                    let pins = JSON.array(JSON.object(pinData)["items"]).map {
-                        JSON.firstText($0, "title", "description") ?? "Untitled pin"
-                    }
-                    return (index, Board(name: name, pins: pins))
+                    var board = board
+                    board.pins = JSON.array(JSON.object(pinData)["items"]).map(Self.pin)
+                    return (index, board)
                 }
             }
             var collected: [(Int, Board)] = []
@@ -98,11 +137,36 @@ struct PinterestProvider: ServiceProvider {
             return collected.sorted { $0.0 < $1.0 }.map(\.1)   // board order as the API returned it
         }
     }
+
+    /// `media` is a union discriminated by `media_type`; only the image variants
+    /// carry `images`. Reading straight through to `images` rather than switching on
+    /// the discriminator means video pins simply yield no image instead of needing a
+    /// case for every current and future media type.
+    private static func pin(_ raw: [String: Any]) -> Pin {
+        let sizes = JSON.object(raw, "media", "images").compactMapValues { value -> URL? in
+            guard let entry = value as? [String: Any] else { return nil }
+            return JSON.firstText(entry, "url").flatMap(URL.init(string:))
+        }
+        return Pin(title: JSON.firstText(raw, "title", "description", "alt_text") ?? "Untitled pin",
+                   image: sizes.isEmpty ? nil : PinImage(sizes: sizes))
+    }
 }
 
 extension [PinterestProvider.Board] {
     var rows: [Row] {
-        isEmpty ? [Row("No boards", value: "—")]
-                : map { Row($0.name, value: "\($0.pins.count)", children: $0.pins.map { Row($0) }) }
+        guard !isEmpty else { return [Row("No boards", value: "—")] }
+        return map { board in
+            // `pin_count` is the board's true size, but never report fewer pins than
+            // are listed directly beneath it — an absent count would otherwise render
+            // "0" above ten visible rows.
+            let total = Swift.max(board.pinCount, board.pins.count)
+            var children = board.pins.map { Row($0.title) }
+            // The value is the whole board while the children are one capped page of
+            // it, so without this a 500-pin board looks like it lost 490.
+            if total > board.pins.count {
+                children.append(Row("+ \(total - board.pins.count) more"))
+            }
+            return Row(board.name, value: "\(total)", children: children)
+        }
     }
 }

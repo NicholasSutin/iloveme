@@ -152,8 +152,8 @@ From the official OpenAPI spec (v5.28.0), resolved through `allOf`:
 - **Board cover:** `BoardBase.media` → `BoardMedia.image_cover_url`, plus
   `pin_thumbnail_urls` (array of `150x150` URLs) — enough for a board tile without
   fetching that board's pins at all.
-- **`BoardBase.pin_count`** is the true pin total. `PinterestProvider` currently
-  displays `pins.count`, which is capped at `pinsPerBoard`.
+- **`BoardBase.pin_count`** is the true pin total. Now displayed (was `pins.count`,
+  capped at `pinsPerBoard`, so a 500-pin board read as 10).
 - **URLs are public CDN** (`i.pinimg.com`). Verified by direct fetch with no
   Authorization header: `HTTP 200, image/jpeg, 2188 bytes`. So `AsyncImage(url:)`
   loads them directly — no proxy, no signed URLs, no Worker.
