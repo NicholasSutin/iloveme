@@ -207,6 +207,25 @@ Scopes requested at mint time are in `PinterestProvider.config` —
 `boards:read`, `boards:read_secret`, `pins:read`, `pins:read_secret`. The `_secret`
 pair includes secret boards; drop those two entries to exclude them.
 
+### Secret boards: the portal token cannot see them
+
+Two independent gates, and the interim token fails the first:
+
+1. **Scope.** A portal token grants only `pins:read`, `boards:read`,
+   `user_accounts:read` (`docs/pinterest-docs/quickstart-tools.md`) — no `_secret`
+   pair. So while connected by portal token the card shows **public boards only**,
+   and that is expected, not a bug. The minted token requests both `_secret` scopes,
+   which the spec confirms are available to the client-credentials grant.
+2. **Filter.** `GET /boards` takes `privacy` — `ALL | PUBLIC | PROTECTED | SECRET |
+   PUBLIC_AND_SECRET` — and the OpenAPI spec documents **no default**. The provider
+   omits it and takes whatever Pinterest defaults to.
+
+If secret boards are still missing once 2FA lands and the token is minted, gate 2 is
+the cause and `privacy=ALL` on the `/boards` request is the one-line fix. It is
+deliberately not added in advance: passing it with a token that lacks
+`boards:read_secret` risks a 403 that would break the working portal-token setup, to
+fix a problem that may not exist.
+
 ### Verified 2026-08-30
 
 Against the live endpoint with a deliberately wrong secret, the app got
