@@ -2,13 +2,13 @@ import SwiftUI
 
 /// The one screen. Layout only: each card owns its own loading and state.
 struct RootView: View {
-    @State private var steps = StepsModel()
+    @State private var health = HealthModel()
     @State private var dashboard = Dashboard()
 
     var body: some View {
         ScrollView {
             VStack(spacing: Theme.cardGap) {
-                StepsCardView(model: steps)
+                HealthCardView(model: health)
                 ForEach(dashboard.services) { ServiceCardView(card: $0) }
             }
             .padding(Theme.gutter)
@@ -22,9 +22,9 @@ struct RootView: View {
     /// otherwise the service cards wait behind the (modal, first-launch) HealthKit
     /// permission prompt.
     private func reload() async {
-        async let health: Void = steps.load()
+        async let healthLoad: Void = health.load()
         async let services: Void = dashboard.refreshAll()
-        _ = await (health, services)
+        _ = await (healthLoad, services)
     }
 }
 

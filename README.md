@@ -2,11 +2,11 @@
 
 iOS app + widget extension, one screen of text cards.
 
-- **Steps** — HealthKit → App Group snapshot → Lock Screen / Home Screen widget.
-- **Four service integrations** — GitHub, Strava, Notion, Pinterest. Every data
-  client is written; only auth is outstanding. GitHub works end to end today; the
-  other three are blocked on registration or on the deferred Worker proxy. See
-  "Live wiring status" below.
+- **Health** — steps, distance, flights climbed, active energy, exercise minutes,
+  resting heart rate, sleep and workout counts from HealthKit. Steps are mirrored to
+  an App Group snapshot for the Lock Screen / Home Screen widget.
+- **Three service integrations** — GitHub, Notion, Pinterest. Every data client is
+  written; only auth is outstanding. See "Live wiring status" below.
 
 Adding a fifth integration is one file plus one enum case — see "Adding an
 integration".
@@ -23,15 +23,15 @@ App/                     iOS app target
   DesignSystem/          Theme, CardView, RowsView — reusable chrome
   Features/              one folder per feature area
     Dashboard/           ServiceCardView, ConnectControls
-    Steps/               StepsCardView
+    Health/              HealthCardView
 Services/                app-target logic, no SwiftUI except where noted
   Core/                  Row, ServiceStatus, ServiceKind, ServiceError
   Networking/            HTTP (one send path), JSON (tolerant digging)
   Auth/                  OAuthConfig/Token, TokenStore, TokenExchange,
-                         AuthSession, GitHubDeviceFlow
+                         GitHubDeviceFlow
   Providers/             ServiceProvider protocol, registry, one file per service
   Dashboard/             ServiceCard, Dashboard
-  Health/                StepsModel (HealthKit)
+  Health/                HealthModel, HealthMetric (HealthKit)
 Shared/                  member of BOTH targets — StepSnapshot, Formatting
 Widget/                  WidgetKit extension; reads only the snapshot
 screentime/              standalone macOS CLI, in no Xcode target — see
@@ -67,16 +67,14 @@ build. To confirm they were applied, read the generated file instead:
 plutil -p build/Build/Intermediates.noindex/ILoveMe.build/Debug-iphonesimulator/ILoveMe.build/DerivedSources/Entitlements-Simulated.plist
 ```
 
-### Declared but unused: HealthKit background delivery
-`App/App.entitlements` requests `com.apple.developer.healthkit.background-delivery`,
-but nothing implements it — there is no `HKObserverQuery`, no
-`enableBackgroundDelivery`, no `BGAppRefreshTask` anywhere in the tree. Steps refresh
-only when the app is foregrounded. Either wire it up (LIBRARIES.md has the doc links)
-or drop the entitlement; a declared-and-unused capability is a question at review time.
+### Removed: unused HealthKit declarations
 
-Same shape: `App/Info.plist` declares
-`NSHealthClinicalHealthRecordsShareUsageDescription`, but the app reads step count
-only and never touches clinical records.
+`App.entitlements` used to request `healthkit.background-delivery` and `Info.plist`
+declared `NSHealthClinicalHealthRecordsShareUsageDescription`, neither of which the
+app used — there is no `HKObserverQuery`, no `enableBackgroundDelivery`, no
+`BGAppRefreshTask`, and clinical records are never read. Both were dropped rather
+than left as questions at review time. Health data refreshes when the app is
+foregrounded.
 
 ### Steps read 0 on a fresh Simulator
 Not a bug and not a sign-in problem. A Simulator is born with an empty HealthKit
@@ -149,7 +147,8 @@ Nothing else changes. `ServiceCard`, `Dashboard`, `ServiceCardView` and
 - `Providers` — exhaustive `kind → provider` registry; a new case is a compile error
 - `ServiceCard` — per-card state machine: load, connect, disconnect. Provider-agnostic
 - `Dashboard` — the card set; refreshes them in a cancellable task group
-- `StepsModel` — HealthKit. Deliberately *not* a `ServiceCard` (no token, no client
+- `HealthModel` — HealthKit, driven by a declarative `HealthMetric` list so adding a
+  metric is one entry. Deliberately *not* a `ServiceCard` (no token, no client
   ID, no connect flow), but exposes the same `status`/`rows`/`load()` surface so the
   same card view renders it
 - `HTTP.send` — the single request path; every failure keeps its status and body
@@ -157,86 +156,59 @@ Nothing else changes. `ServiceCard`, `Dashboard`, `ServiceCardView` and
 
 Status per card: Not configured / Not connected / Connecting / Connected / error.
 
-### ⚠️ Setup step NOT done: the `iloveme://` URL scheme is unregistered
+### No URL scheme, deliberately
 
-`App/Info.plist` has **no `CFBundleURLTypes`**, so `iloveme://oauth` will not come
-back to the app. This does not affect anything working today — GitHub's device flow
-has no redirect leg, and Notion/Pinterest paste a token — but **any redirect flow
-(i.e. Strava) fails silently until it is added**:
-
-```xml
-<key>CFBundleURLTypes</key>
-<array>
-  <dict>
-    <key>CFBundleURLName</key>
-    <string>com.nick.iloveme.oauth</string>
-    <key>CFBundleURLSchemes</key>
-    <array><string>iloveme</string></array>
-  </dict>
-</array>
-```
-
-Add it alongside the callback-domain work, not before — the experiment in
-docs/registration.md may change which scheme (or host) is actually used.
+`App/Info.plist` has no `CFBundleURLTypes`, and that is correct: nothing in the app
+handles an incoming URL. GitHub's device flow has no redirect leg, and Notion and
+Pinterest paste tokens. The `iloveme://` scheme existed only for Strava's browser
+redirect and was removed with it — `git log` has both if a redirect provider returns.
 
 ### Live wiring status (2026-08-28)
 Endpoints verified against official docs — see docs/api-notes.md (injection-screened: PASS).
-Reality check: Strava/Notion/Pinterest REQUIRE client_secret at token exchange (no PKCE
-public clients). Only GitHub is secret-free, via the device flow.
+Reality check: Notion and Pinterest both require a client_secret for full OAuth, so
+both use pasted long-lived tokens instead. GitHub is secret-free via the device flow.
+No integration now needs a server-side secret.
 
-Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
+Updated 2026-08-29. Full detail and next actions in **docs/registration.md**.
 
 | Service | Registered | Client ID | Works? | Next action |
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
-| **Strava** | yes | in place | **auth yes, data blocked** | paid Strava subscription |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
-| **Pinterest** | no | — | no | privacy policy + domain, then Trial review |
+| **Pinterest** | no | — | no | Pinterest app review |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
-  "Enable Device Flow" confirmed ticked — without it the code request fails outright.
-- **Strava**: data client complete; auth entirely missing, and **not known to work**.
-  The callback domain is `localhost`, which cannot match `iloveme://oauth`. There is a
-  two-minute portal experiment that decides how much work Strava is — run it before
-  building anything. See docs/registration.md.
 - **Notion**: paste-in path implemented and ready. Use an internal-integration token,
   NOT OAuth — reasoning recorded in docs/registration.md.
 - **Pinterest**: data client complete. The privacy policy is live at
-  iloveme.nicholassutin.com/privacy, so it is now blocked purely on Pinterest's app
-  review. Once approved, Trial can mint a test token without OAuth, so it needs a
-  `.pastedToken` affordance — never the relay.
+  iloveme.nicholassutin.com/privacy, so it is blocked purely on Pinterest's app
+  review. Once approved, Trial can mint a test token without OAuth.
+- **Strava was removed 2026-08-29.** Its auth worked end to end, but Strava's
+  Developer Program requires a paid subscription on the account owning the API
+  application, so it returned 403 `Application/Status/Inactive` for all data. The
+  HealthKit card was expanded to cover some of the same ground — workouts, distance
+  and exercise minutes. See docs/registration.md for the full record.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 
-### The Worker proxy — scaffolded in `worker/`, never deployed
+### The Worker (`worker/`) — website only
 
-**Only Strava needs it.** GitHub is device flow; Notion and Pinterest use pasted
-tokens. See `worker/README.md` for setup, secrets, environments and routes.
+Hono on Cloudflare Workers, serving the homepage and the privacy policy that
+Pinterest's review requires. Staging deploys as `iloveme-app`; production as
+`iloveme` on `iloveme.nicholassutin.com`.
 
-Hono on Cloudflare Workers. Staging deploys as `iloveme-app`; production as `iloveme`
-on `iloveme.nicholassutin.com`. Routes: `/` (homepage), `/privacy` (the public
-policy page Pinterest's review requires), `/health`, and bearer-gated
-`/strava/exchange` and `/strava/refresh`.
+It was built to hold Strava's `client_secret`. With Strava gone it **holds no secrets
+and receives no user data** — every remaining integration is secret-free. `git log`
+has the relay if one is ever needed again.
 
-**Pinterest is blocked on deploying this**, not on Strava: its review needs a live
-privacy-policy URL, which is `/privacy` here. That deploy needs no secrets.
-Verified locally against `wrangler dev` — including a real Strava round trip — but
-never deployed and no Cloudflare resources created.
-
-Xcode cannot see `worker/`:
-only App/, Services/, Shared/ and Widget/ are synchronized roots. Confirmed by
-building both targets with an invalid `.swift` file planted in `worker/src/` — both
-succeeded and it never reached a compile step. Secrets live in Cloudflare via
-`wrangler secret put`, never in source.
-
-Wiring it up also needs an app-side change: `ConnectAffordance` currently has
-`.deviceFlow` / `.pastedToken` / `.unavailable`, and a redirect flow needs a fourth case
-plus a `connectWebRedirect()` path on `ServiceCard`. `AuthSession` (already written) does
-the browser leg and returns the PKCE verifier.
+Xcode cannot see `worker/`: only App/, Services/, Shared/ and Widget/ are
+synchronized roots. Confirmed by building both targets with an invalid `.swift` file
+planted in `worker/src/` — both succeeded and it never reached a compile step.
 
 ### Not built (deliberate)
-- Worker proxy (deferred) — blocks Strava only; Notion and Pinterest have paste-in paths
-- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. Harmless for
-  Notion/Pinterest/GitHub (long-lived or non-expiring tokens), but Strava access tokens
-  live ~6 hours, so Strava cannot work without refresh plumbing in `ServiceCard.load()`.
+- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. Harmless
+  today: GitHub, Notion and Pinterest tokens are long-lived or non-expiring. It was
+  needed only for Strava's ~6h expiry, and the relay that performed it went with
+  Strava.
 - Notion OAuth (access token chosen instead — see docs/registration.md)
+- HealthKit background delivery — see the entitlement note above.

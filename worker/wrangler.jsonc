@@ -18,9 +18,6 @@
   // Non-secret config only. Secrets go through `wrangler secret put` — see README.
   "vars": {
     "ENVIRONMENT": "staging",
-    // Public identifier, not a secret — it is already committed in
-    // Services/Providers/StravaProvider.swift and appears in every authorize URL.
-    "STRAVA_CLIENT_ID": "175321",
     // Shown publicly on /privacy. Route it in Cloudflare Email Routing.
     "CONTACT_EMAIL": "privacy@nicholassutin.com"
   },
@@ -30,8 +27,7 @@
       "name": "iloveme-app",
       "vars": {
         "ENVIRONMENT": "staging",
-        "STRAVA_CLIENT_ID": "175321",
-        "CONTACT_EMAIL": "privacy@nicholassutin.com"
+            "CONTACT_EMAIL": "privacy@nicholassutin.com"
       }
     },
 
@@ -46,8 +42,7 @@
       // repeated here or it is simply absent in production.
       "vars": {
         "ENVIRONMENT": "production",
-        "STRAVA_CLIENT_ID": "175321",
-        // Public on iloveme.nicholassutin.com/privacy.
+            // Public on iloveme.nicholassutin.com/privacy.
         "CONTACT_EMAIL": "privacy@nicholassutin.com"
       }
     }

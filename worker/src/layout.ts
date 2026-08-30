@@ -91,7 +91,7 @@ export function shell({ title, description, body, css = "" }: PageOptions): stri
 ${body}
 <footer class="site"><div class="wrap">
   <p>An independent personal project. Not affiliated with, endorsed by, or sponsored by
-  Apple, Strava, GitHub, Notion or Pinterest.</p>
+  Apple, GitHub, Notion or Pinterest.</p>
   <a href="/privacy">Privacy&nbsp;policy</a>
 </div></footer>
 </body>

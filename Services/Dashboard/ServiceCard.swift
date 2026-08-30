@@ -1,4 +1,3 @@
-import AuthenticationServices
 import Foundation
 
 /// One card's state. Provider-agnostic: everything service-specific is reached
@@ -18,10 +17,6 @@ final class ServiceCard: Identifiable {
     /// Held so a prompt that is abandoned does not leave a 15-minute poll running.
     private var connectTask: Task<Void, Never>?
 
-    /// ASWebAuthenticationSession holds its presentation context provider weakly,
-    /// so the AuthSession must be owned here for the life of the browser flow.
-    private var authSession: AuthSession?
-
     nonisolated var id: String { kind.rawValue }
 
     private var provider: any ServiceProvider { kind.provider }
@@ -37,27 +32,11 @@ final class ServiceCard: Identifiable {
     // MARK: Refresh
 
     func load() async {
-        guard var token = TokenStore.shared.token(for: kind) else {
+        guard let token = TokenStore.shared.token(for: kind) else {
             status = provider.idleStatus
             return
         }
         status = .connecting
-
-        // Strava access tokens live ~6 hours, so refresh proactively rather than
-        // waiting for a 401 and showing the user an error we could have avoided.
-        if token.isExpired, provider.usesRelay, let refreshToken = token.refreshToken {
-            guard let relay = TokenRelay.configured else {
-                status = .failed("Relay not configured")
-                return
-            }
-            do {
-                token = try await relay.refresh(refreshToken, provider: kind)
-                try TokenStore.shared.saveToken(token, for: kind)
-            } catch {
-                status = .failure(error)
-                return
-            }
-        }
 
         do {
             rows = try await provider.rows(token: token.accessToken)
@@ -88,50 +67,6 @@ final class ServiceCard: Identifiable {
     func connectDeviceFlow() {
         connectTask?.cancel()
         connectTask = Task { [weak self] in await self?.runDeviceFlow() }
-    }
-
-    /// `.webRedirect` path: browser consent, then the code is exchanged through
-    /// the relay Worker because the provider requires a client_secret.
-    func connectWebRedirect() {
-        connectTask?.cancel()
-        connectTask = Task { [weak self] in await self?.runWebRedirect() }
-    }
-
-    private func runWebRedirect() async {
-        let config = provider.config
-        guard config.isConfigured else { status = .notConfigured; return }
-        guard let relay = TokenRelay.configured else {
-            status = .failed("Relay not configured")
-            return
-        }
-        guard let session = AuthSession.current() else {
-            status = .failed("No window to present from")
-            return
-        }
-        authSession = session
-        status = .connecting
-        defer { authSession = nil }
-
-        do {
-            // The PKCE verifier is returned but unused here: Strava documents no
-            // PKCE support, and the relay's client_secret is what secures exchange.
-            let (callback, _) = try await session.authorize(config: config)
-            let items = URLComponents(url: callback, resolvingAgainstBaseURL: false)?.queryItems
-            guard let code = items?.first(where: { $0.name == "code" })?.value else {
-                let denial = items?.first(where: { $0.name == "error" })?.value
-                throw ServiceError.provider(denial ?? "No authorization code returned")
-            }
-            let token = try await relay.exchange(code: code, provider: kind)
-            try TokenStore.shared.saveToken(token, for: kind)
-            await load()
-        } catch is CancellationError {
-            status = provider.idleStatus
-        } catch let error as ASWebAuthenticationSessionError where error.code == .canceledLogin {
-            // Dismissing the sheet is a choice, not a failure.
-            status = provider.idleStatus
-        } catch {
-            status = .failure(error)
-        }
     }
 
     func cancelConnect() {

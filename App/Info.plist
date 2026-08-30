@@ -18,23 +18,8 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleURLName</key>
-			<string>com.nick.iloveme.oauth</string>
-			<key>CFBundleTypeRole</key>
-			<string>Editor</string>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>iloveme</string>
-			</array>
-		</dict>
-	</array>
-	<key>NSHealthClinicalHealthRecordsShareUsageDescription</key>
-	<string>For activity, wellness, and sleep tracking</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Reads your step count to show it in the app and its widgets.</string>
+	<string>Reads your activity, sleep and workout summaries to show them in the app and its widgets. Read-only — nothing is written back, and nothing leaves your device.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

@@ -26,20 +26,6 @@ struct ConnectControls: View {
                     .font(.subheadline)
                     .buttonStyle(.bordered)
             }
-        case .webRedirect:
-            // The connectable rule lives on the provider — this asks only which of
-            // the two prerequisites is missing, to say something useful about it.
-            if provider.isConnectable {
-                Button("Connect") { card.connectWebRedirect() }
-                    .font(.subheadline)
-                    .buttonStyle(.bordered)
-            } else {
-                Text(provider.config.isConfigured
-                     ? "Add App/Secrets.plist to enable the relay"
-                     : "Add a client ID")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
         case .pastedToken(let prompt):
             PastedTokenField(prompt: prompt, card: card)
         case .unavailable(let reason):

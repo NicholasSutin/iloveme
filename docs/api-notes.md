@@ -1,5 +1,9 @@
 # API Notes — Strava / Notion / Pinterest / GitHub
 
+> **Strava was REMOVED from the app on 2026-08-29** — its Developer Program requires a
+> paid subscription on the owning account. Section 1 below is kept as the research
+> record, not as a description of the app. See docs/registration.md.
+>
 > **This is a dated research record, not current status.** Its findings were
 > verified 2026-08-28 and still hold, but the decisions taken since (which auth path
 > each service actually uses, what is registered, what works) live in

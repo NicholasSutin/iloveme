@@ -43,7 +43,7 @@ const CSS = `
  *  nothing external to fetch and they inherit colour from the surrounding text. */
 const ICONS: Record<string, string> = {
   steps: '<path d="M2 12h3l2-6 3 12 2-6h4"/>',
-  strava: '<path d="M3 15l4-8 2.5 5"/><path d="M9.5 12l2 4 3.5-7"/>',
+  github: '<path d="M8 5l-4 5 4 5"/><path d="M12 5l4 5-4 5"/>',
   notion: '<rect x="4" y="3" width="12" height="14" rx="2"/><path d="M7.5 7.5h5M7.5 10.5h5M7.5 13.5h3"/>',
 };
 
@@ -58,23 +58,28 @@ const BODY = `
   <section class="hero">
     <span class="pill">iPhone &middot; Lock Screen &amp; Home Screen widgets</span>
     <h1>Your day, in one quiet place.</h1>
-    <p class="tagline">A personal health and wellness dashboard. Steps from Apple Health,
-    next to the things you already track somewhere else — with nothing shouting at you.</p>
+    <p class="tagline">A personal health and wellness dashboard. Your day's activity,
+    sleep and workouts from Apple Health, next to the things you already track somewhere
+    else — with nothing shouting at you.</p>
   </section>
 
   <section class="preview" aria-label="Preview of the app's cards">
     <div class="card">
       <div class="card-head">${icon("steps")}
-        <span class="card-title">Steps</span>
+        <span class="card-title">Health</span>
         <span class="chip"><span class="dot"></span>Updated 09:12</span></div>
-      <div class="row"><span>Today</span><span>8,412</span></div>
+      <div class="row"><span>Steps</span><span>8,412</span></div>
+      <div class="row"><span>Distance</span><span>6.14 km</span></div>
+      <div class="row"><span>Exercise</span><span>34 min</span></div>
+      <div class="row"><span>Sleep</span><span>7h 21m</span></div>
+      <div class="row"><span>Workouts this week</span><span>3</span></div>
     </div>
     <div class="card">
-      <div class="card-head">${icon("strava")}
-        <span class="card-title">Strava</span>
+      <div class="card-head">${icon("github")}
+        <span class="card-title">GitHub</span>
         <span class="chip"><span class="dot"></span>Updated 09:12</span></div>
-      <div class="row"><span>This week</span><span>3</span></div>
-      <div class="row"><span>Total distance</span><span>412.6 km</span></div>
+      <div class="row"><span>Last 7 days</span><span>41</span></div>
+      <div class="row"><span>Last 30 days</span><span>168</span></div>
     </div>
     <div class="card">
       <div class="card-head">${icon("notion")}
@@ -87,8 +92,8 @@ const BODY = `
 
   <h2>What it pulls together</h2>
   <ul class="grid">
-    <li><strong>Apple Health</strong><span>Today's step count, on your widgets even while locked.</span></li>
-    <li><strong>Strava</strong><span>Activity counts for today, this week and this month, plus total distance.</span></li>
+    <li><strong>Apple Health</strong><span>Steps, distance, flights climbed, active energy,
+      exercise minutes, resting heart rate, time asleep and workout counts.</span></li>
     <li><strong>GitHub</strong><span>Contributions over the last 7 and 30 days.</span></li>
     <li><strong>Notion</strong><span>Your most recently edited pages.</span></li>
     <li><strong>Pinterest</strong><span>Boards and the pins inside them.</span></li>
@@ -102,9 +107,9 @@ const BODY = `
     <li>No accounts, no analytics, no tracking, no advertising.</li>
     <li>There is no user database. We run no server that stores your information.</li>
   </ul>
-  <p class="note">The one exception is Strava sign-in, which has to be relayed through a
-  server because Strava requires a secret an app cannot safely hold. That relay stores
-  nothing. It is written out plainly in the <a href="/privacy">privacy policy</a>.</p>
+  <p class="note">There is no exception and no asterisk. The app talks to each service
+  directly from your phone, and no server of ours sits in between — the
+  <a href="/privacy">privacy policy</a> says so in full.</p>
 
   <h2>Where it is up to</h2>
   <p>ILoveMe is an independent project, actively being built, and is not on the App Store.
@@ -117,8 +122,9 @@ export function homePage(): string {
   return shell({
     title: "ILoveMe — a quiet personal health dashboard",
     description:
-      "A personal health and wellness dashboard for iPhone. Steps from Apple Health " +
-      "alongside Strava, GitHub, Notion and Pinterest. Private by construction.",
+      "A personal health and wellness dashboard for iPhone. Activity, sleep and " +
+      "workouts from Apple Health alongside GitHub, Notion and Pinterest. " +
+      "Private by construction.",
     body: BODY,
     css: CSS,
   });

@@ -8,13 +8,12 @@ import Foundation
 /// on the matching `ServiceProvider`, not here. This type holds only what the
 /// chrome needs.
 enum ServiceKind: String, CaseIterable, Identifiable, Sendable {
-    case strava, notion, pinterest, github
+    case notion, pinterest, github
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .strava: "Strava"
         case .notion: "Notion"
         case .pinterest: "Pinterest"
         case .github: "GitHub"
@@ -23,7 +22,6 @@ enum ServiceKind: String, CaseIterable, Identifiable, Sendable {
 
     var symbol: String {
         switch self {
-        case .strava: "figure.run"
         case .notion: "note.text"
         case .pinterest: "square.grid.2x2"
         case .github: "chevron.left.forwardslash.chevron.right"

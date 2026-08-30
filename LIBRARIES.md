@@ -42,35 +42,30 @@ shims — write your own client, stay at zero deps.
 
 Real constraints:
 - Secrets. Keys in an iOS binary are extractable.
-  - OAuth (Strava/Notion/Pinterest/GitHub): ASWebAuthenticationSession + PKCE, Keychain.
-    https://developer.apple.com/documentation/authenticationservices/aswebauthenticationsession
+  - OAuth (GitHub): device flow, secret-free, Keychain. Notion and Pinterest use
+    pasted long-lived tokens rather than OAuth, so no secret is needed at all.
   - API key (Finnhub/Perplexity/Claude): needs a backend proxy. No client-side workaround.
 - Never network from TimelineProvider. Fetch in app/bg task → App Group → widget reads.
 - BGAppRefreshTask for periodic pulls.
   https://developer.apple.com/documentation/backgroundtasks/bgapprefreshtask
 
-## Cloudflare Worker as secrets proxy (deferred — decisions made 2026-08-28)
+## Cloudflare Worker — now website only
 
-**Scaffolded 2026-08-28 in `worker/` — see worker/README.md. Never deployed.**
-- Hono (zero-dep, ~14 kB, Workers-native). Astro/Svelte are site frameworks and this
-  has no UI — three JSON routes and one redirect.
-- Lives in `worker/` in this repo. Xcode cannot see it (only App/, Services/,
-  Shared/, Widget/ are synchronized roots), its routes mirror the providers 1:1, and
-  no secret is in source — `wrangler secret put` keeps them in Cloudflare.
-- Hosted at `iloveme.nicholassutin.com` (production) and `iloveme-app` (staging).
-  Chosen over s5.design because the callback URL is visible to the user mid-OAuth,
-  which makes it user-facing rather than pure infrastructure.
-- **Only Strava actually needs it.** Notion uses an internal-integration token and
-  Pinterest can mint a Trial test token, both without OAuth; GitHub is device flow.
-  See docs/registration.md.
+Built as a secrets proxy for Strava, which was **removed 2026-08-29** (its Developer
+Program requires a paid subscription — see docs/registration.md). With it went the
+only route needing a secret.
 
-Right shape for the key-based services. Two traps:
+`worker/` now serves just the homepage and privacy policy: no secrets, no user data,
+nothing authenticated. The Pinterest review requires a reachable privacy-policy URL,
+which is why it still exists.
+
+If a provider ever needs a server-side secret again, the traps still apply and the
+implementation is in `git log`:
 - Proxy, not vending. app→Worker→(key added)→upstream. Never return the key to the app.
-  Vending is fine for hackathons/trusted devs, never for a shipped app.
-- The Worker becomes the open door. Anyone who extracts its URL can spend your quota.
-  - App Attest (DCAppAttestService) is the only control that actually holds on iOS.
-    https://developer.apple.com/documentation/devicecheck/dcappattestservice
-  - Bearer token in app = speed bump only. Add rate limits + provider spend caps regardless.
-- Do NOT share one Worker between hackathons and the app. Separate Workers/routes/secrets.
-- Free tier (~100k req/day) is far above a 15-min polling app. SSE passthrough works.
+- The Worker URL becomes the open door. App Attest (DCAppAttestService) is the only
+  control that actually holds on iOS; a bearer token in the app is a speed bump only.
+  Add rate limits + provider spend caps regardless.
+  https://developer.apple.com/documentation/devicecheck/dcappattestservice
+- Do NOT share one Worker between projects. Separate Workers/routes/secrets.
+- Free tier (~100k req/day) is far above a 15-min polling app.
 Pull current Cloudflare docs before building — platform details move.

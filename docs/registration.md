@@ -32,75 +32,17 @@ Client ID is in `GitHubProvider.swift`. The secret is never needed.
 
 ---
 
-## Strava — AUTH WORKS, data BLOCKED on a paid subscription
+## Strava — REMOVED 2026-08-29
 
-https://www.strava.com/settings/api
-- Application name: ILoveMe
-- Category: Data Importer
-- Website: `https://iloveme.nicholassutin.com`
-- Client ID `175321` → in `StravaProvider.swift`
-- Authorization Callback Domain: **`oauth`** ✅
+Registered, fully working, and dropped anyway. Recorded so the decision is not
+relitigated from scratch.
 
-### ✅ RESOLVED — callback domain `oauth`, redirect `iloveme://oauth`
+**Everything technical worked.** Callback domain `oauth`, redirect `iloveme://oauth`,
+browser consent, code captured, exchanged through the relay Worker with the client
+secret, token decoded and stored in the Keychain. Verified in the simulator against
+the live Strava login page.
 
-**Strava matches the redirect_uri's HOST against the Authorization Callback Domain
-and ignores the scheme.** So the domain is chosen to fit the conventional URI, not
-the other way round: domain `oauth` makes `iloveme://oauth` valid.
-
-Form acceptance proves nothing — `localhost` and `iloveme` were both accepted and
-neither did what was wanted. What settles it is the authorize endpoint, which needs
-no app or simulator:
-
-```bash
-curl -o /dev/null -w '%{http_code}\n' \
- "https://www.strava.com/oauth/mobile/authorize?client_id=175321&response_type=code&scope=activity%3Aread_all&redirect_uri=<URL-ENCODED>"
-```
-
-400 with `{"field":"redirect_uri","code":"invalid"}` = rejected.
-302 to `https://www.strava.com/login` = accepted.
-
-Measured against a known-bad control, before and after changing the domain — the
-verdicts invert exactly, which is what proves the rule rather than assuming it:
-
-| redirect_uri | host | domain `iloveme` | domain `oauth` (current) |
-|---|---|---|---|
-| `https://example.com/x` | example.com | 400 | 400 *(control)* |
-| **`iloveme://oauth`** | oauth | 400 | **302 ACCEPTED** |
-| `iloveme://iloveme` | iloveme | 302 | 400 |
-| `iloveme://strava` | strava | — | 400 |
-| `https://iloveme.nicholassutin.com/strava/callback` | that host | 400 | 400 |
-
-Notes:
-
-- One redirect URI serves every provider. `ASWebAuthenticationSession` delivers the
-  callback to the session that started it, so a shared `oauth` host is unambiguous —
-  and it matches the Callback URL already registered on the GitHub app.
-- **Do not** set the domain to `iloveme.nicholassutin.com`. That would force the
-  redirect back through the Worker and resurrect the `/strava/callback` bounce,
-  which is otherwise dead code.
-
-### ✅ Verified in the simulator 2026-08-29
-
-Built signed, run on an iPhone 17 sim, Strava card tapped:
-
-1. Connect button renders (the `.webRedirect` affordance).
-2. `ASWebAuthenticationSession` presents "ILoveMe Wants to Use strava.com to Sign In".
-3. Continue → **Strava's real login page loads**, not a redirect_uri error. This is
-   the live confirmation that `iloveme://oauth` is accepted end to end. Re-verified
-   after the domain changed from `iloveme` to `oauth`.
-4. Dismissing the sheet returns the card to "Not connected", not an error —
-   `ASWebAuthenticationSessionError.canceledLogin` is handled as a choice.
-
-Not verified, because it cannot be until Worker secrets are set: the code→token
-exchange. `POST /strava/exchange` returns 500 `server_misconfigured` in production
-while `APP_SHARED_TOKEN` and `STRAVA_CLIENT_SECRET` are unset. Sign-in was not
-completed — no credentials were entered.
-
-### 🚫 BLOCKED — Strava requires a PAID subscription on the owning account
-
-Auth is finished and proven. Data is not, and the reason is commercial, not technical.
-
-After authorizing, `GET /athlete` returns:
+**Then every data call returned 403:**
 
 ```json
 {"message":"Forbidden","errors":[{"resource":"Application","field":"Status","code":"Inactive"}]}
@@ -112,59 +54,20 @@ Strava's Community Manager, on the official forum:
 > have an active Strava subscription. A Strava subscription is a requirement for all
 > applications in our Developer Program's Standard Tier."
 
-In force since roughly **July 2026**. Nothing is wrong with the token, the scopes,
-the relay or the client secret — Strava is refusing to serve any data to an
-application whose owning account is on a free plan.
-
-**To unblock:** subscribe on the Strava account that *owns* application 175321,
-then reactivate it from the API Settings Dashboard. A thread on the same forum
-shows a developer confused by exactly this: they subscribed on one account but
-tested with another. The subscription must be on the owner account.
-
+In force since roughly July 2026.
 Source: https://communityhub.strava.com/developers-api-7/code-inactive-on-all-new-requests-13620
 
-**This is a cost decision, not a bug.** If the subscription is not worth it, Strava
-is dead for this project and the relay Worker exists solely for it — GitHub is
-device flow, Notion and Pinterest paste tokens. Worth deciding before more effort
-goes in.
+**Why removed rather than parked:** Strava was the only integration needing a
+server-side secret. Keeping it meant keeping the relay Worker's authenticated
+routes, a shared token duplicated between Cloudflare and the app binary, and refresh
+plumbing for its ~6h tokens — all for an integration gated behind a subscription.
+The HealthKit card was expanded instead: workouts this week, walking/running
+distance, exercise minutes and active energy cover some of the same ground from data
+the phone already has.
 
-The app translates this specific 403 into "Strava app inactive — needs
-subscription" rather than showing the raw JSON, since the token is fine and the raw
-body implies otherwise.
-
-### Strava also needs token refresh
-
-Access tokens live **~6 hours**. `OAuthToken.isExpired` exists but nothing calls
-it, so Strava cannot work without new refresh plumbing in `ServiceCard.load()` —
-independent of the callback-domain question. Remaining for Strava, now that the callback question is closed:
-
-1. ~~`CFBundleURLTypes`~~ — done, and verified in the built `.app`.
-2. ~~`webRedirect` + `connectWebRedirect()`~~ — done, verified in the simulator.
-3. ~~Refresh plumbing~~ — done: `ServiceCard.load()` refreshes through the relay
-   before fetching when the token is expired. Untested until a real token exists.
-4. **Worker secrets — the only thing left.**
-
-```bash
-cd worker
-npx wrangler secret put STRAVA_CLIENT_SECRET --env production
-npx wrangler secret put APP_SHARED_TOKEN     --env production   # openssl rand -hex 32
-# STRAVA_CLIENT_ID is NOT a secret — it lives in wrangler.jsonc vars.
-```
-
-Then put the same shared token in `App/Secrets.plist` (gitignored — never commit it;
-a public repo is worse than a binary, since git history is permanent):
-
-```xml
-<dict>
-  <key>RelaySharedToken</key><string>…same value…</string>
-  <key>RelayBaseURL</key><string>https://iloveme.nicholassutin.com</string>
-</dict>
-```
-
-Without that file the Strava card says "Add App/Secrets.plist to enable the relay"
-rather than offering a button that cannot work.
-
----
+**To bring it back:** subscribe on the account owning the API application, reactivate
+it in the API Settings Dashboard, then recover from `git log` — commit `4871d9d` has
+the provider, relay client, `webRedirect` affordance and Worker routes intact.
 
 ## Pinterest
 

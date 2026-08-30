@@ -14,7 +14,7 @@ struct PinterestProvider: ServiceProvider {
     // Not the Worker — that exists now. Pinterest reviews every app before granting
     // even Trial access, and Trial can then mint a test token from the portal with
     // no OAuth at all. So this becomes `.pastedToken` once approved, never
-    // `.webRedirect`. See docs/registration.md.
+    // the relay. See docs/registration.md.
     let connect = ConnectAffordance.unavailable(
         reason: "Waiting on Pinterest app review")
 
