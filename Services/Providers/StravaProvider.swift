@@ -19,7 +19,17 @@ struct StravaProvider: ServiceProvider {
     var placeholderRows: [Row] { Summary().rows }
 
     func rows(token: String) async throws -> [Row] {
-        try await summary(token: token).rows
+        do {
+            return try await summary(token: token).rows
+        } catch let error as HTTPError where error.body.contains("\"code\":\"Inactive\"") {
+            // Strava returns a 403 whose body is
+            //   {"resource":"Application","field":"Status","code":"Inactive"}
+            // when the account owning the API application has no active Strava
+            // subscription — required for the Developer Program's Standard Tier
+            // since July 2026. Nothing about the token is wrong, so the raw JSON
+            // is actively misleading in a status chip. See docs/registration.md.
+            throw ServiceError.provider("Strava app inactive — needs subscription")
+        }
     }
 
     // MARK: Data

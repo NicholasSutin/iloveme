@@ -32,7 +32,7 @@ Client ID is in `GitHubProvider.swift`. The secret is never needed.
 
 ---
 
-## Strava — CALLBACK RESOLVED, auth not yet built
+## Strava — AUTH WORKS, data BLOCKED on a paid subscription
 
 https://www.strava.com/settings/api
 - Application name: ILoveMe
@@ -95,6 +95,42 @@ Not verified, because it cannot be until Worker secrets are set: the code→toke
 exchange. `POST /strava/exchange` returns 500 `server_misconfigured` in production
 while `APP_SHARED_TOKEN` and `STRAVA_CLIENT_SECRET` are unset. Sign-in was not
 completed — no credentials were entered.
+
+### 🚫 BLOCKED — Strava requires a PAID subscription on the owning account
+
+Auth is finished and proven. Data is not, and the reason is commercial, not technical.
+
+After authorizing, `GET /athlete` returns:
+
+```json
+{"message":"Forbidden","errors":[{"resource":"Application","field":"Status","code":"Inactive"}]}
+```
+
+Strava's Community Manager, on the official forum:
+
+> "Your API application is currently inactive because the owner of your app does not
+> have an active Strava subscription. A Strava subscription is a requirement for all
+> applications in our Developer Program's Standard Tier."
+
+In force since roughly **July 2026**. Nothing is wrong with the token, the scopes,
+the relay or the client secret — Strava is refusing to serve any data to an
+application whose owning account is on a free plan.
+
+**To unblock:** subscribe on the Strava account that *owns* application 175321,
+then reactivate it from the API Settings Dashboard. A thread on the same forum
+shows a developer confused by exactly this: they subscribed on one account but
+tested with another. The subscription must be on the owner account.
+
+Source: https://communityhub.strava.com/developers-api-7/code-inactive-on-all-new-requests-13620
+
+**This is a cost decision, not a bug.** If the subscription is not worth it, Strava
+is dead for this project and the relay Worker exists solely for it — GitHub is
+device flow, Notion and Pinterest paste tokens. Worth deciding before more effort
+goes in.
+
+The app translates this specific 403 into "Strava app inactive — needs
+subscription" rather than showing the raw JSON, since the token is fine and the raw
+body implies otherwise.
 
 ### Strava also needs token refresh
 

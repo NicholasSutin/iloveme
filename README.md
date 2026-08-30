@@ -189,7 +189,7 @@ Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
 | Service | Registered | Client ID | Works? | Next action |
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
-| **Strava** | yes | in place | **sign-in yes, token no** | set Worker secrets |
+| **Strava** | yes | in place | **auth yes, data blocked** | paid Strava subscription |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
 | **Pinterest** | no | — | no | privacy policy + domain, then Trial review |
 
