@@ -7,7 +7,7 @@ struct ServiceCardView: View {
 
     var body: some View {
         CardView(symbol: card.kind.symbol,
-                 title: card.kind.title,
+                 title: card.account.title,
                  status: card.status,
                  rows: card.rows) {
             ConnectControls(card: card)

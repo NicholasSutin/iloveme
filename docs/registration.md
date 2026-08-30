@@ -12,7 +12,7 @@ Worker holds no secrets and serves only the public site.
 |---|---|---|---|
 | **GitHub** | yes, device flow enabled | yes | **yes — done** |
 | **Pinterest** | yes, approved | yes (`1606244`) | wired — paste a token to confirm |
-| **Notion** | no | n/a | not started (needs no client ID) |
+| **Notion** | n/a — internal token, nothing to register | n/a | **ready — paste a token per account** |
 | **Strava** | was, then removed | n/a | **removed 2026-08-29 — see below** |
 
 ---
@@ -174,18 +174,84 @@ to end; the real secret is the only untested variable.
 
 ---
 
-## Notion — NOT STARTED (deliberate choice recorded)
+## Notion — READY TO CONNECT (two accounts, pasted tokens)
 
-notion.so/profile/integrations → **internal integration**, Read content capability
-→ share chosen pages with it → paste the token into the app's Notion card.
-No client ID, no redirect URI, no Worker. The code path is already built.
+### What to pick in the portal
 
-**Why the access token and not OAuth**, despite OAuth offering per-user sign-in:
-Notion's token exchange requires `client_secret` over HTTP Basic and the public
-REST API has no PKCE. Choosing OAuth would put Notion behind the same deferred
-Worker as Strava, for a per-user benefit worth nothing while the user population is
-one person. OAuth also does not save the page-sharing step — both paths make you
-pick which pages the integration can see.
+The developer portal (`app.notion.com/developers` → **New connection**) asks for an
+authentication method. **Choose Access token, not OAuth.** OAuth is the wrong tool
+here for reasons recorded below — and, importantly, it would not remove a single
+step of what follows.
 
-Revisit if the app gains users other than Nick. The migration is one line in
-`NotionProvider.swift` (`.pastedToken` → `.webRedirect`) plus one Worker route.
+Do this **once per Notion account**, personal and work:
+
+1. New connection → **Access token** → **Internal**, in that account's workspace.
+2. Capability: **Read content** only. Nothing else is used, and least privilege is
+   the whole reason the privacy policy can claim the app is read-only.
+3. Copy the token.
+4. In Notion, open each page you want on the dashboard → **Connections** → add the
+   integration. Nothing is visible to it until you do; `/v1/search` returns only
+   pages shared with that connection.
+5. In the app, paste the token into the matching card — **Notion · Personal** or
+   **Notion · Work** — and Save.
+
+An internal connection token does not expire. (Don't confuse it with a *personal
+access token*, which does — 7/30/90/180 days or 1 year, per `docs/api-notes.md`
+§2.2. If a Notion card ever says "Token expired", that is what happened.)
+
+### Why there are two Notion cards
+
+**A Notion credential is scoped to one workspace.** Personal and work are separate
+Notion accounts, so they need a token each — there is no single credential that
+spans both, and OAuth does not change that: an OAuth install issues one bot token
+per workspace too.
+
+So the app models a card as an *account*, not a service:
+
+- `ServiceAccount` = a `ServiceKind` plus an optional label.
+- `NotionProvider.accounts` declares `Personal` and `Work`; every other provider
+  inherits the default of one unlabelled account and is unchanged.
+- The Keychain is keyed by `ServiceAccount.id` — `notion/Personal`, `notion/Work`,
+  and plain `github` / `pinterest` as before, so nothing already stored moved.
+
+Adding a third Notion account is one entry in `NotionProvider.accounts`. **Renaming
+an existing label orphans its stored token** — the label is part of the Keychain
+key. The card goes back to "Not connected"; paste the token again and it is fine.
+
+### Why not OAuth — decided 2026-08-30
+
+The question was whether to paste tokens now and submit a public connection for
+review in parallel. Verdict: **paste now, and don't start OAuth until it buys
+something.** OAuth's only real benefit is letting *other people* sign in, and the
+app has one user.
+
+What OAuth would cost, in the order that matters:
+
+| | Access token (now) | OAuth |
+|---|---|---|
+| Notion review | none | yes — the Authorization URL only appears after a public connection is submitted |
+| Server | none | the Worker must hold `client_secret` again |
+| Token upkeep | none — it doesn't expire | refresh with **rotating** refresh tokens |
+| Redirect URI | none | https only, so Associated Domains + an `apple-app-site-association` route |
+| Privacy policy | true as written | must stop saying no server sits in between |
+| Two accounts | two cards | still two cards |
+
+1. **Refresh is the real work, not the review.** Notion's refresh returns a new
+   access token *and a new refresh token*, and no `expires_in` is documented
+   (`docs/api-notes.md` §2.1). So refreshing must be reactive on a 401, and the new
+   pair must be persisted atomically — lose it and that workspace is locked out for
+   good. No refresh plumbing exists in the app: commit `7db2dac` deleted the only
+   one there ever was.
+2. **The redirect leg is gone too.** That same commit removed `webRedirect`,
+   `TokenRelay`, `AppSecrets`, `AuthSession`, `CFBundleURLTypes` and
+   `OAuthConfig.redirectScheme`. The old note here claiming the migration was "one
+   line plus one Worker route" was written before that and is no longer true.
+3. **The review itself looks cheap.** Public connections are self-serve in the
+   portal; the 5–10 business-day security review is for *listing in the gallery*,
+   which this app does not need. A public connection can be created and used
+   without being listed.
+
+If it is ever started: pick installation scope **Any workspace**. It cannot be
+changed after creation, and "Selected workspaces only" is not gallery-eligible — so
+the restrictive choice would have to be thrown away on the very day OAuth starts
+paying for itself.

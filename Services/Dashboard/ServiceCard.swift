@@ -3,10 +3,14 @@ import Foundation
 /// One card's state. Provider-agnostic: everything service-specific is reached
 /// through `kind.provider`, so this file does not change when an integration is
 /// added.
+///
+/// A card is one *account*, not one service. Services with a single login are
+/// unaffected; Notion has two, and they are two independent cards that happen to
+/// share a provider.
 @MainActor
 @Observable
 final class ServiceCard: Identifiable {
-    let kind: ServiceKind
+    let account: ServiceAccount
     private(set) var status: ServiceStatus
     private(set) var rows: [Row]
 
@@ -17,7 +21,9 @@ final class ServiceCard: Identifiable {
     /// Held so a prompt that is abandoned does not leave a 15-minute poll running.
     private var connectTask: Task<Void, Never>?
 
-    nonisolated var id: String { kind.rawValue }
+    nonisolated var id: String { account.id }
+
+    nonisolated var kind: ServiceKind { account.kind }
 
     private var provider: any ServiceProvider { kind.provider }
 
@@ -31,18 +37,18 @@ final class ServiceCard: Identifiable {
         }
     }
 
-    init(kind: ServiceKind) {
-        self.kind = kind
-        self.rows = kind.provider.placeholderRows
-        self.status = TokenStore.shared.hasToken(for: kind)
+    init(account: ServiceAccount) {
+        self.account = account
+        self.rows = account.kind.provider.placeholderRows
+        self.status = TokenStore.shared.hasToken(for: account)
             ? .connected("Connected")
-            : kind.provider.idleStatus
+            : account.kind.provider.idleStatus
     }
 
     // MARK: Refresh
 
     func load() async {
-        guard TokenStore.shared.hasToken(for: kind) else {
+        guard TokenStore.shared.hasToken(for: account) else {
             status = provider.idleStatus
             return
         }
@@ -69,13 +75,13 @@ final class ServiceCard: Identifiable {
     /// resulting 401 still surfaces as "Token expired — paste a new one" rather than
     /// being pre-empted by a vaguer message here.
     private func currentToken() async throws -> OAuthToken? {
-        let stored = TokenStore.shared.token(for: kind)
+        let stored = TokenStore.shared.token(for: account)
         if let stored, !stored.isExpired { return stored }
         guard case .clientCredentials = provider.connect,
-              let secret = TokenStore.shared.clientSecret(for: kind) else { return stored }
+              let secret = TokenStore.shared.clientSecret(for: account) else { return stored }
 
         let minted = try await ClientCredentialsFlow(config: provider.config).token(secret: secret)
-        try TokenStore.shared.saveToken(minted, for: kind)
+        try TokenStore.shared.saveToken(minted, for: account)
         return minted
     }
 
@@ -87,7 +93,7 @@ final class ServiceCard: Identifiable {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         do {
-            try TokenStore.shared.saveToken(OAuthToken(accessToken: trimmed), for: kind)
+            try TokenStore.shared.saveToken(OAuthToken(accessToken: trimmed), for: account)
             await load()
         } catch {
             status = .failure(error, unauthorized: unauthorizedHint)
@@ -105,8 +111,8 @@ final class ServiceCard: Identifiable {
         status = .connecting
         do {
             let token = try await ClientCredentialsFlow(config: provider.config).token(secret: trimmed)
-            try TokenStore.shared.saveClientSecret(trimmed, for: kind)
-            try TokenStore.shared.saveToken(token, for: kind)
+            try TokenStore.shared.saveClientSecret(trimmed, for: account)
+            try TokenStore.shared.saveToken(token, for: account)
             await load()
         } catch {
             status = .failure(error, unauthorized: unauthorizedHint)
@@ -137,7 +143,7 @@ final class ServiceCard: Identifiable {
             let code = try await flow.requestCode()
             deviceCode = code
             let token = try await flow.waitForToken(code)
-            try TokenStore.shared.saveToken(token, for: kind)
+            try TokenStore.shared.saveToken(token, for: account)
             deviceCode = nil
             await load()
         } catch is CancellationError {
@@ -149,10 +155,10 @@ final class ServiceCard: Identifiable {
 
     func disconnect() {
         connectTask?.cancel()
-        TokenStore.shared.clearToken(for: kind)
+        TokenStore.shared.clearToken(for: account)
         // Otherwise "disconnect" would leave the credential that mints tokens behind,
         // and the next load would silently reconnect.
-        TokenStore.shared.clearClientSecret(for: kind)
+        TokenStore.shared.clearClientSecret(for: account)
         rows = provider.placeholderRows
         status = provider.idleStatus
     }

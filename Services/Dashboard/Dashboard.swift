@@ -6,8 +6,10 @@ import Foundation
 final class Dashboard {
     let services: [ServiceCard]
 
-    init(kinds: [ServiceKind] = ServiceKind.allCases) {
-        services = kinds.map(ServiceCard.init)
+    /// One card per account, not per service — so a service offering two accounts
+    /// contributes two cards, in the order its provider lists them.
+    init(accounts: [ServiceAccount] = ServiceKind.allCases.flatMap { $0.provider.accounts }) {
+        services = accounts.map(ServiceCard.init)
     }
 
     /// A task group rather than loose `Task`s: same concurrency, but cancellation

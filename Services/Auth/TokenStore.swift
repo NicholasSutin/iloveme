@@ -45,23 +45,28 @@ struct TokenStore: Sendable {
         SecItemDelete(query(account) as CFDictionary)
     }
 
-    // MARK: Tokens, keyed by service
+    // MARK: Tokens, keyed by account
 
-    func saveToken(_ token: OAuthToken, for kind: ServiceKind) throws {
+    // Keying by `ServiceAccount` rather than `ServiceKind` is what lets one service
+    // hold several logins at once: two Notion accounts are two Keychain entries that
+    // never see each other. An unlabelled account's key is unchanged, so this is not
+    // a migration — nothing already stored moves.
+
+    func saveToken(_ token: OAuthToken, for account: ServiceAccount) throws {
         let data = try JSONEncoder().encode(token)
-        try save(String(decoding: data, as: UTF8.self), account: kind.rawValue)
+        try save(String(decoding: data, as: UTF8.self), account: account.id)
     }
 
-    func token(for kind: ServiceKind) -> OAuthToken? {
-        guard let raw = read(account: kind.rawValue) else { return nil }
+    func token(for account: ServiceAccount) -> OAuthToken? {
+        guard let raw = read(account: account.id) else { return nil }
         return try? JSONDecoder().decode(OAuthToken.self, from: Data(raw.utf8))
     }
 
     /// Existence check that skips returning and decoding the payload — the launch
     /// path only needs to know whether a card starts connected.
-    func hasToken(for kind: ServiceKind) -> Bool { exists(account: kind.rawValue) }
+    func hasToken(for account: ServiceAccount) -> Bool { exists(account: account.id) }
 
-    func clearToken(for kind: ServiceKind) { delete(account: kind.rawValue) }
+    func clearToken(for account: ServiceAccount) { delete(account: account.id) }
 
     // MARK: Client secrets, for providers that mint their own tokens
 
@@ -72,15 +77,15 @@ struct TokenStore: Sendable {
     /// rather than in the app binary or an xcconfig, so it is absent from the repo,
     /// absent from the build, and removed with the rest of the account by
     /// `disconnect()`.
-    private func secretAccount(_ kind: ServiceKind) -> String { "\(kind.rawValue).secret" }
+    private func secretAccount(_ account: ServiceAccount) -> String { "\(account.id).secret" }
 
-    func saveClientSecret(_ secret: String, for kind: ServiceKind) throws {
-        try save(secret, account: secretAccount(kind))
+    func saveClientSecret(_ secret: String, for account: ServiceAccount) throws {
+        try save(secret, account: secretAccount(account))
     }
 
-    func clientSecret(for kind: ServiceKind) -> String? { read(account: secretAccount(kind)) }
+    func clientSecret(for account: ServiceAccount) -> String? { read(account: secretAccount(account)) }
 
-    func clearClientSecret(for kind: ServiceKind) { delete(account: secretAccount(kind)) }
+    func clearClientSecret(for account: ServiceAccount) { delete(account: secretAccount(account)) }
 }
 
 struct KeychainError: LocalizedError {

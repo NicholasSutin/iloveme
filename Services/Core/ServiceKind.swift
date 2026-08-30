@@ -2,7 +2,7 @@ import Foundation
 
 /// The set of integrations. Kept as an enum rather than a registry key so that
 /// adding one is a compile error everywhere it matters — and so the raw value can
-/// serve as the Keychain account name.
+/// seed the Keychain account name, which `ServiceAccount.id` builds on.
 ///
 /// Everything behavioural (endpoints, fetching, rendering, how to connect) lives
 /// on the matching `ServiceProvider`, not here. This type holds only what the

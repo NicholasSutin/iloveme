@@ -6,7 +6,9 @@ iOS app + widget extension, one screen of text cards.
   workout count from HealthKit. **iPhone-only by rule**: every metric comes from the
   phone's motion coprocessor or barometer, so nothing needs an Apple Watch. Steps are
   mirrored to an App Group snapshot for the Lock Screen / Home Screen widget.
-- **Three service integrations** — GitHub, Notion, Pinterest. Every data client is
+- **Three service integrations** — GitHub, Notion, Pinterest — shown as four cards,
+  because Notion is connected once per account (personal and work are separate Notion
+  accounts, and a Notion token is scoped to one workspace). Every data client is
   written; only auth is outstanding. See "Live wiring status" below.
 
 Adding a fifth integration is one file plus one enum case — see "Adding an
@@ -180,12 +182,14 @@ Full detail and next actions in **docs/registration.md**.
 | Service | Registered | Client ID | Works? | Next action |
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
-| **Notion** | no | n/a | no | create the internal integration, paste token |
+| **Notion** | n/a — internal token | n/a | ready | paste one token per account |
 | **Pinterest** | yes, approved | `1606244` | wired | paste the app secret once |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
-- **Notion**: paste-in path implemented and ready. Use an internal-integration token,
-  NOT OAuth — reasoning recorded in docs/registration.md.
+- **Notion**: paste-in path implemented and ready, with a card each for **Personal**
+  and **Work**. Use an internal-integration token, NOT OAuth — OAuth needs a Notion
+  review, restores the secret-holding Worker, and adds rotating-refresh-token upkeep,
+  while still requiring one token per workspace. Reasoning in docs/registration.md.
 - **Pinterest**: approved 2026-08-30. Paste the **app secret** once; the app mints
   and renews its own tokens via the client-credentials grant. The grant acts on
   behalf of the app owner, who is the only user here, so the authorization-code
@@ -199,6 +203,9 @@ Full detail and next actions in **docs/registration.md**.
   and walking/running distance. See docs/registration.md for the full record.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
+- A card is one **account**, not one service: `ServiceAccount` (a `ServiceKind` plus
+  an optional label) keys both the dashboard and the Keychain. A new provider gets a
+  single unlabelled account for free; only Notion overrides `accounts`.
 
 ### The Worker (`worker/`) — website only
 
@@ -222,5 +229,7 @@ planted in `worker/src/` — both succeeded and it never reached a compile step.
   itself without a server. GitHub's and Notion's tokens do not expire. A provider
   that could neither renew nor refresh would surface expiry as a 401 chip naming the
   field to fix; none currently exists.
-- Notion OAuth (access token chosen instead — see docs/registration.md)
+- Notion OAuth (access token chosen instead — see docs/registration.md). Revisit only
+  when someone other than Nick needs to sign in; two Notion accounts is not that
+  reason, since OAuth also issues one token per workspace.
 - HealthKit background delivery — see the entitlement note above.

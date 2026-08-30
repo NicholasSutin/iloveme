@@ -29,6 +29,14 @@ protocol ServiceProvider: Sendable {
     var config: OAuthConfig { get }
     var connect: ConnectAffordance { get }
 
+    /// The accounts this service offers, in display order — one card each.
+    ///
+    /// Defaulted to a single unlabelled account, which is what every service that a
+    /// person only has one login for should use. Override it only when they can
+    /// genuinely hold more than one, as with Notion's separate personal and work
+    /// accounts. Each account connects, fails and disconnects on its own.
+    var accounts: [ServiceAccount] { get }
+
     /// Shown before the first successful fetch, and whenever a fetch returns
     /// nothing. One definition, so the empty state cannot drift from the loaded one.
     var placeholderRows: [Row] { get }
@@ -38,6 +46,9 @@ protocol ServiceProvider: Sendable {
 }
 
 extension ServiceProvider {
+    /// One login, no label — the shape of every service except Notion.
+    var accounts: [ServiceAccount] { [ServiceAccount(kind)] }
+
     /// Most providers are plain OAuth apps that need a client ID compiled in.
     var isConnectable: Bool {
         switch connect {

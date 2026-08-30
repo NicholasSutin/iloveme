@@ -2,6 +2,11 @@ import Foundation
 
 /// Notion. Connected by pasting an internal-integration token rather than by
 /// OAuth — the personal shortcut that avoids needing a `client_secret`.
+///
+/// The only service here with more than one account, because a Notion token is
+/// scoped to one workspace: personal and work are separate Notion accounts and so
+/// need a token each. That is true of OAuth too, which is why OAuth would not have
+/// removed this — see docs/registration.md.
 struct NotionProvider: ServiceProvider {
     let kind = ServiceKind.notion
 
@@ -12,6 +17,12 @@ struct NotionProvider: ServiceProvider {
         scopes: [])   // Notion has capabilities, not scopes
 
     let connect = ConnectAffordance.pastedToken(prompt: "Integration token")
+
+    /// One card per Notion account. Adding a third is one entry — but the labels are
+    /// Keychain keys, so change an existing one only if you mean to orphan its token.
+    var accounts: [ServiceAccount] {
+        [ServiceAccount(kind, label: "Personal"), ServiceAccount(kind, label: "Work")]
+    }
 
     /// developers.notion.com/reference/versioning
     static let apiVersion = "2026-03-11"
