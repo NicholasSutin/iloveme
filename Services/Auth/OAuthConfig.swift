@@ -7,14 +7,22 @@ struct OAuthConfig: Sendable {
     var authorizationEndpoint: URL
     var tokenEndpoint: URL
     var scopes: [String]
-    /// NOT yet registered: App/Info.plist has no CFBundleURLTypes, so this scheme
-    /// does not route back to the app. Required before any redirect flow — see README.
     var redirectScheme: String
 
     var isConfigured: Bool { !clientID.isEmpty }
 
-    /// The scheme the app intends to use for OAuth callbacks. See the note on
-    /// `redirectScheme` above — it is not registered in Info.plist yet.
+    /// The redirect target sent to the provider.
+    ///
+    /// Host and scheme are BOTH the scheme name — `iloveme://iloveme` — which looks
+    /// odd but is load-bearing. Strava matches this URI's *host* against the
+    /// registered Authorization Callback Domain (`iloveme`) and ignores the scheme
+    /// entirely, so the conventional `iloveme://oauth` is rejected: its host is
+    /// `oauth`. Measured 2026-08-29; the table is in docs/registration.md.
+    ///
+    /// ASWebAuthenticationSession matches on scheme alone, so it intercepts this fine.
+    var redirectURI: String { "\(redirectScheme)://\(redirectScheme)" }
+
+    /// Registered in App/Info.plist under CFBundleURLTypes.
     static let redirectScheme = "iloveme"
 
     init(clientID: String = "",

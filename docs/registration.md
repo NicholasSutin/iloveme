@@ -32,43 +32,68 @@ Client ID is in `GitHubProvider.swift`. The secret is never needed.
 
 ---
 
-## Strava — REGISTERED, NOT WORKING
+## Strava — CALLBACK RESOLVED, auth not yet built
 
 https://www.strava.com/settings/api
 - Application name: ILoveMe
 - Category: Data Importer
 - Website: https://github.com/NicholasSutin
 - Client ID `175321` → in `StravaProvider.swift`
-- Authorization Callback Domain: **`localhost`** ← the problem
+- Authorization Callback Domain: **`iloveme`** ✅
 
-### ⚠️ THE EXPERIMENT TO RUN FIRST
+### ✅ RESOLVED 2026-08-29 — use `iloveme://iloveme`, NOT `iloveme://oauth`
 
-**Set the Authorization Callback Domain to `iloveme` and see if Strava accepts it.**
+The experiment ran. Callback domain `iloveme` was accepted by the form — but form
+acceptance proves nothing (`localhost` was accepted too and was unusable). What
+settles it is hitting the authorize endpoint directly; no app or simulator needed:
 
-That is the whole test. Two minutes in the portal, and it decides how much work
-Strava is.
+```bash
+curl -o /dev/null -w '%{http_code}\n' \
+ "https://www.strava.com/oauth/mobile/authorize?client_id=175321&response_type=code&scope=activity%3Aread_all&redirect_uri=<URL-ENCODED>"
+```
 
-Why it matters: Strava matches the `redirect_uri` against the registered callback
-domain. Ours is `iloveme://oauth`, whose host is `oauth` — which does not match
-`localhost`. As registered today the redirect will be rejected. `localhost` was
-accepted by the form, but it is a placeholder, not a working value.
+400 with `{"field":"redirect_uri","code":"invalid"}` = rejected.
+302 to `https://www.strava.com/login` = accepted.
 
-- **If `iloveme` is accepted** → the browser redirect stays entirely in the app.
-  The Worker is then needed *only* for token exchange and refresh. Cheaper path.
-- **If it is rejected** → the Worker must also host the redirect and bounce to the
-  custom scheme, because `ASWebAuthenticationSession` can only intercept custom
-  schemes, never `https`:
-  `Strava → https://<worker>/strava/callback?code=… → 302 → iloveme://oauth?code=…`
-  The callback domain then becomes the Worker's hostname.
+Measured 2026-08-29 with callback domain `iloveme`:
 
-Do not build any redirect machinery before running this.
+| redirect_uri | host | verdict |
+|---|---|---|
+| `https://example.com/x` | example.com | 400 rejected *(control)* |
+| **`iloveme://oauth`** | oauth | **400 REJECTED** |
+| **`iloveme://iloveme`** | iloveme | **302 ACCEPTED** |
+| `http://iloveme/oauth` | iloveme | 302 accepted |
+| `https://iloveme/oauth` | iloveme | 302 accepted |
+| `iloveme://` | *(none)* | 400 rejected |
+| `iloveme:/oauth` · `iloveme:oauth` | *(none)* | 400 rejected |
+| `https://iloveme.nicholassutin.com/strava/callback` | that host | 400 rejected |
+
+**Strava matches the redirect_uri's HOST against the callback domain and ignores the
+scheme.** Domain `iloveme` therefore demands host `iloveme`, so the working value is
+`iloveme://iloveme` — not the conventional `iloveme://oauth`. A custom scheme is
+fine; only the host is checked.
+
+Consequences:
+
+- The app's redirect URI is **`iloveme://iloveme`**. `ASWebAuthenticationSession`
+  matches on scheme alone, so it intercepts this without trouble.
+- **The Worker's `/strava/callback` bounce is not needed.** It is now dead code, and
+  would itself be rejected — `iloveme.nicholassutin.com` is not the callback domain.
+  Using it would mean changing the callback domain, which would then break the
+  direct custom-scheme redirect. Pick one; the direct one is cheaper.
 
 ### Strava also needs token refresh
 
 Access tokens live **~6 hours**. `OAuthToken.isExpired` exists but nothing calls
 it, so Strava cannot work without new refresh plumbing in `ServiceCard.load()` —
-independent of the callback-domain question. This makes Strava the most expensive
-of the four by a wide margin: Worker + refresh + a new `ConnectAffordance` case.
+independent of the callback-domain question. Remaining for Strava, now that the callback question is closed:
+
+1. `CFBundleURLTypes` for scheme `iloveme` in `App/Info.plist` — still absent.
+2. A `webRedirect` case on `ConnectAffordance` + `connectWebRedirect()` on `ServiceCard`.
+3. Refresh plumbing (the ~6h expiry above).
+4. Worker secrets — `/strava/exchange` currently returns 500 `server_misconfigured`
+   in production because `APP_SHARED_TOKEN` and `STRAVA_CLIENT_SECRET` are unset.
+   That is the fail-closed path working as designed, not a bug.
 
 ---
 

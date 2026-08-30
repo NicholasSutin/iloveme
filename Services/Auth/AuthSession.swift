@@ -48,7 +48,7 @@ final class AuthSession: NSObject {
         var components = URLComponents(url: config.authorizationEndpoint, resolvingAgainstBaseURL: false)!
         components.queryItems = [
             .init(name: "client_id", value: config.clientID),
-            .init(name: "redirect_uri", value: "\(config.redirectScheme)://oauth"),
+            .init(name: "redirect_uri", value: config.redirectURI),
             .init(name: "response_type", value: "code"),
             .init(name: "scope", value: config.scopes.joined(separator: " ")),
             .init(name: "code_challenge", value: challenge),
