@@ -190,8 +190,11 @@ Full detail and next actions in **docs/registration.md**.
   and **Work**. Use an internal-integration token, NOT OAuth — OAuth needs a Notion
   review, restores the secret-holding Worker, and adds rotating-refresh-token upkeep,
   while still requiring one token per workspace. Reasoning in docs/registration.md.
-- **Pinterest**: approved 2026-08-30. Paste the **app secret** once; the app mints
-  and renews its own tokens via the client-credentials grant. The grant acts on
+- **Pinterest**: approved 2026-08-30, **blocked** — minting needs 2FA on the account
+  and enabling it currently errors on Pinterest's side. The card meanwhile accepts a
+  24-hour portal token, told apart from a secret by Pinterest's `pin` token prefix,
+  which exercises the whole data path. Once 2FA works: paste the **app secret** once
+  and the app mints and renews its own tokens via the client-credentials grant. The grant acts on
   behalf of the app owner, who is the only user here, so the authorization-code
   flow's consent leg would be ceremony with nobody to perform it for. The secret
   lives in the Keychain only — never the repo, an xcconfig, or the binary. Needs 2FA

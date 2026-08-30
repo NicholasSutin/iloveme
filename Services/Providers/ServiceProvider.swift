@@ -43,9 +43,19 @@ protocol ServiceProvider: Sendable {
 
     /// Fetch and render in one step. Implementations stay off the main actor.
     func rows(token: String) async throws -> [Row]
+
+    /// Whether a string the user pasted is already an access token, rather than a
+    /// secret to mint one from. Only consulted for `.clientCredentials`.
+    ///
+    /// Exists because a provider can issue more than one kind of credential for the
+    /// same app, and the user has whichever one they have. Defaulted to `false`, so
+    /// a provider that issues only secrets says nothing.
+    func isAccessToken(_ pasted: String) -> Bool
 }
 
 extension ServiceProvider {
+    func isAccessToken(_ pasted: String) -> Bool { false }
+
     /// One login, no label — the shape of every service except Notion.
     var accounts: [ServiceAccount] { [ServiceAccount(kind)] }
 

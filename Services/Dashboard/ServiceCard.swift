@@ -108,6 +108,12 @@ final class ServiceCard: Identifiable {
     func saveClientSecret(_ raw: String) async {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        // Sending a token to the token endpoint as if it were a secret would fail
+        // with an authentication error that blamed the wrong thing entirely.
+        guard !provider.isAccessToken(trimmed) else {
+            await savePastedToken(trimmed)
+            return
+        }
         status = .connecting
         do {
             let token = try await ClientCredentialsFlow(config: provider.config).token(secret: trimmed)

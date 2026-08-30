@@ -2,16 +2,40 @@
 
 Client IDs are public and safe to commit; paste them into that service's
 `Services/Providers/<Name>Provider.swift` (`OAuthConfig(clientID: …)`).
-**Secrets are not.** Since Strava's removal no integration needs one: every
-remaining service connects by device flow or by a token the user pastes, so the
-Worker holds no secrets and serves only the public site.
+**Secrets are not**, and none of them live in a file.
+
+## There is no `.env`, and nothing needs one
+
+Every credential this app uses is entered at runtime and stored in the iOS Keychain:
+GitHub's via the device flow, Notion's and Pinterest's by pasting into the card.
+Nothing is read from a file, an xcconfig, or the environment, so there is nothing to
+put in one.
+
+Three leftovers make it look otherwise. All are dead:
+
+| Leftover | What it was | Status |
+|---|---|---|
+| `APP_SHARED_TOKEN` | authenticated the app to the Strava relay Worker | removed in `7db2dac` |
+| `App/Secrets.plist` | carried that token into the app; gitignored | never regenerated |
+| `.dev.vars` in `.gitignore` | where wrangler would put a Worker secret | no such secret exists |
+
+**The shared secret you are remembering was Strava's**, added in `4b45717` and
+deleted with the rest of Strava. It authenticated the app to a relay that no longer
+exists. Nothing reads it; generating a new one would give you a value with no
+consumer.
+
+The `.gitignore` entries stay on purpose — they cost nothing and mean a returning
+relay cannot leak on its first commit. An empty slot, not a missing value.
+
+**The Worker holds no secrets either.** It serves the homepage and privacy policy;
+that is all it does. `wrangler secret put` has nothing to receive.
 
 ## Where things stand — 2026-08-30
 
 | Service | Registered | Client ID in code | Works? |
 |---|---|---|---|
 | **GitHub** | yes, device flow enabled | yes | **yes — done** |
-| **Pinterest** | yes, approved | yes (`1606244`) | wired — paste a token to confirm |
+| **Pinterest** | yes, approved | yes (`1606244`) | wired — **blocked: 2FA erroring** |
 | **Notion** | n/a — internal token, nothing to register | n/a | **ready — paste a token per account** |
 | **Strava** | was, then removed | n/a | **removed 2026-08-29 — see below** |
 
@@ -80,14 +104,6 @@ https://developers.pinterest.com/apps/
 - Privacy policy: `https://iloveme.nicholassutin.com/privacy`, served by the Worker
   (`worker/src/privacy.ts`). Deploying that is what unblocked the review.
 
-### The app secret is not needed — do not paste it anywhere
-
-The portal shows an app secret alongside the App ID. It only signs the OAuth token
-exchange, and this app does no OAuth: it takes a token generated in the portal.
-Leave the secret in the portal. Putting it in the app would embed a credential in a
-binary; putting it in the Worker would resurrect the authenticated relay that
-Strava's removal deleted.
-
 ### How it connects: paste the app secret once
 
 The app uses the **client-credentials grant** and mints its own tokens. You paste
@@ -149,16 +165,43 @@ Sandbox tokens are a dead end regardless: only valid against
 `api-sandbox.pinterest.com`, and Pinterest states the two environments' tokens are
 not interchangeable in either direction.
 
-### Setup
+### BLOCKED 2026-08-30: two-factor auth will not enable
 
-1. **Enable two-factor auth** on the Pinterest account. Pinterest mandates it for
-   this grant type; without it, minting fails.
+Pinterest mandates 2FA for the client-credentials grant, and enabling it currently
+**errors on Pinterest's side** — not a mistake in the setup here. Until that clears,
+the secret cannot be exchanged for a token, so the paste-the-secret path is
+unavailable.
+
+Nothing in the app is wrong or needs changing. Retry the setup below once 2FA
+sticks.
+
+### Interim: a portal token still connects the card
+
+The 24-hour test token needs no 2FA, and the field accepts it. This is worth doing
+even though it expires daily, because it exercises everything the secret path would
+except the mint itself — the API calls, board and pin parsing, row rendering, the
+rate-limit budget — against real data. Whatever the mint eventually returns flows
+through exactly this code.
+
+1. Portal → **My apps** → **Manage** → **Configure** → **Generate Access Tokens**
+   (the production-limited button, **not** sandbox).
+2. Paste it into the Pinterest card and Save.
+
+The card takes either credential and tells them apart by prefix: Pinterest tags
+every access token it issues `pina` / `pinc` / `pinr`, and app secrets carry no such
+prefix (`PinterestProvider.isAccessToken`). A pasted token is stored as-is; a
+pasted secret is exchanged for one. Expect the card to go red about a day later —
+that is the 24-hour expiry, not a regression.
+
+### Setup, once 2FA works
+
+1. **Enable two-factor auth** on the Pinterest account.
 2. Portal → **My apps** → **Manage** → copy the **app secret key**.
-3. App → Pinterest card → paste into **App secret** → Save.
+3. App → Pinterest card → paste into **App secret or token** → Save.
 
 The app immediately exchanges it for a token, which doubles as validation: a wrong
 secret shows **"Secret rejected — check it"** and is not stored. A correct one
-shows your boards.
+shows your boards, and renews itself from then on.
 
 Scopes requested at mint time are in `PinterestProvider.config` —
 `boards:read`, `boards:read_secret`, `pins:read`, `pins:read_secret`. The `_secret`

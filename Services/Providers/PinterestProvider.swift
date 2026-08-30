@@ -36,7 +36,18 @@ struct PinterestProvider: ServiceProvider {
     ///
     /// Requires two-factor auth on the Pinterest account; Pinterest mandates it for
     /// this grant type. See docs/registration.md.
-    let connect = ConnectAffordance.clientCredentials(prompt: "App secret")
+    let connect = ConnectAffordance.clientCredentials(prompt: "App secret or token")
+
+    /// Pinterest prefixes every access token it issues — `pina` (authorization
+    /// code), `pinc` (client credentials), `pinr` (refresh) — and app secrets carry
+    /// no such prefix. So one field can take either, and the user pastes whichever
+    /// credential they actually have.
+    ///
+    /// That is not only a convenience. Minting requires two-factor auth on the
+    /// account; while that is unavailable, a portal-generated token still connects
+    /// the card and exercises the whole data path. The secret remains the better
+    /// credential — it renews itself — but it is no longer the only way in.
+    func isAccessToken(_ pasted: String) -> Bool { pasted.hasPrefix("pin") }
 
     var placeholderRows: [Row] { [Board]().rows }
 
