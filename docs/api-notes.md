@@ -143,6 +143,25 @@ Base URL `https://api.pinterest.com/v5`, `Authorization: Bearer <token>`.
 - **List pins in a board:** `GET /v5/boards/{board_id}/pins` (op `boards/list_pins`; scopes `boards:read` + `pins:read`). Query params: `bookmark`, `page_size`, `creative_types`, `pin_metrics`, `ad_account_id`. — official OpenAPI spec, path `/boards/{board_id}/pins`
 - Pagination is bookmark-based: pass the `bookmark` value from the previous response.
 
+### 3.4b Images — available, already in the responses we make (checked 2026-08-30)
+From the official OpenAPI spec (v5.28.0), resolved through `allOf`:
+- **Pin images:** `PinRead` → `PinBase.media` → `PinMedia` (a `oneOf` discriminated by
+  `media_type`: `image` / `video` / `multiple_images` / `multiple_videos` /
+  `multiple_mixed`) → `PinMediaWithImage.images` → `ImageSize`, whose keys are
+  **`150x150`, `400x300`, `600x`, `1200x`**, each an `ImageDetails {url, width, height}`.
+- **Board cover:** `BoardBase.media` → `BoardMedia.image_cover_url`, plus
+  `pin_thumbnail_urls` (array of `150x150` URLs) — enough for a board tile without
+  fetching that board's pins at all.
+- **`BoardBase.pin_count`** is the true pin total. `PinterestProvider` currently
+  displays `pins.count`, which is capped at `pinsPerBoard`.
+- **URLs are public CDN** (`i.pinimg.com`). Verified by direct fetch with no
+  Authorization header: `HTTP 200, image/jpeg, 2188 bytes`. So `AsyncImage(url:)`
+  loads them directly — no proxy, no signed URLs, no Worker.
+- **Image fetches are not API calls**, so they do not consume the 1,000/day budget in
+  §3.6. Only `/boards` and `/boards/{id}/pins` do.
+- `media_type` must be handled: a video pin has no `images`, so any decoding needs the
+  field to be optional rather than assumed present.
+
 ### 3.5 Trial/sandbox access vs review
 - **Every app is reviewed before any access**: "If approved for API use, your app receives Trial access." Trial apps can generate a token to test the API **without setting up the OAuth flow**. — https://developers.pinterest.com/docs/getting-started/access-tiers/ (also surfaced at /docs/key-concepts/access-tiers/)
 - **Trial access CAN read real data**: "Reading boards: Yes", "Reading Pins: Yes". Restriction is on writes: "all Pins and Boards created with Trial access are only visible to their creator as Sandbox entities." — https://developers.pinterest.com/docs/key-concepts/access-tiers/
