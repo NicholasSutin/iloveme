@@ -60,10 +60,16 @@ export const strava = new Hono<{ Bindings: Env }>();
  * PUBLIC — no app token. Strava redirects the *browser* here, and a browser
  * carries no shared secret.
  *
- * Only needed if Strava rejects a bare custom scheme as the Authorization
- * Callback Domain; run the experiment in docs/registration.md first. It exists
- * because ASWebAuthenticationSession can only intercept custom schemes, never
- * https, so something has to convert one into the other.
+ * ⚠️ CONFIRMED UNNECESSARY 2026-08-29 — kept only as a fallback.
+ *
+ * Strava matches the redirect_uri's HOST against the Authorization Callback
+ * Domain and ignores the scheme, so with domain `iloveme` the app redirects
+ * straight to `iloveme://iloveme` and never comes here. This route would in fact
+ * be REJECTED as a redirect_uri, since iloveme.nicholassutin.com is not the
+ * callback domain — using it would mean changing the domain, which would then
+ * break the direct redirect. Pick one; the direct one is in use.
+ *
+ * Delete this once you are confident the direct redirect is permanent.
  *
  * Carries no secret and performs no exchange — it just forwards the opaque code
  * to the app, which then calls /strava/exchange.

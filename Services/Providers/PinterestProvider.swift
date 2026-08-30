@@ -11,8 +11,12 @@ struct PinterestProvider: ServiceProvider {
         token: "https://api.pinterest.com/v5/oauth/token",
         scopes: ["boards:read", "pins:read"])
 
+    // Not the Worker — that exists now. Pinterest reviews every app before granting
+    // even Trial access, and Trial can then mint a test token from the portal with
+    // no OAuth at all. So this becomes `.pastedToken` once approved, never
+    // `.webRedirect`. See docs/registration.md.
     let connect = ConnectAffordance.unavailable(
-        reason: "Token exchange requires the Worker proxy (not built yet)")
+        reason: "Waiting on Pinterest app review")
 
     var placeholderRows: [Row] { [Board]().rows }
 

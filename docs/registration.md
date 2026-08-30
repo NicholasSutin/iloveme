@@ -82,18 +82,53 @@ Consequences:
   Using it would mean changing the callback domain, which would then break the
   direct custom-scheme redirect. Pick one; the direct one is cheaper.
 
+### ✅ Verified in the simulator 2026-08-29
+
+Built signed, run on an iPhone 17 sim, Strava card tapped:
+
+1. Connect button renders (the `.webRedirect` affordance).
+2. `ASWebAuthenticationSession` presents "ILoveMe Wants to Use strava.com to Sign In".
+3. Continue → **Strava's real login page loads**, not a redirect_uri error. This is
+   the live confirmation that `iloveme://iloveme` is accepted end to end.
+4. Dismissing the sheet returns the card to "Not connected", not an error —
+   `ASWebAuthenticationSessionError.canceledLogin` is handled as a choice.
+
+Not verified, because it cannot be until Worker secrets are set: the code→token
+exchange. `POST /strava/exchange` returns 500 `server_misconfigured` in production
+while `APP_SHARED_TOKEN` and `STRAVA_CLIENT_SECRET` are unset. Sign-in was not
+completed — no credentials were entered.
+
 ### Strava also needs token refresh
 
 Access tokens live **~6 hours**. `OAuthToken.isExpired` exists but nothing calls
 it, so Strava cannot work without new refresh plumbing in `ServiceCard.load()` —
 independent of the callback-domain question. Remaining for Strava, now that the callback question is closed:
 
-1. `CFBundleURLTypes` for scheme `iloveme` in `App/Info.plist` — still absent.
-2. A `webRedirect` case on `ConnectAffordance` + `connectWebRedirect()` on `ServiceCard`.
-3. Refresh plumbing (the ~6h expiry above).
-4. Worker secrets — `/strava/exchange` currently returns 500 `server_misconfigured`
-   in production because `APP_SHARED_TOKEN` and `STRAVA_CLIENT_SECRET` are unset.
-   That is the fail-closed path working as designed, not a bug.
+1. ~~`CFBundleURLTypes`~~ — done, and verified in the built `.app`.
+2. ~~`webRedirect` + `connectWebRedirect()`~~ — done, verified in the simulator.
+3. ~~Refresh plumbing~~ — done: `ServiceCard.load()` refreshes through the relay
+   before fetching when the token is expired. Untested until a real token exists.
+4. **Worker secrets — the only thing left.**
+
+```bash
+cd worker
+npx wrangler secret put STRAVA_CLIENT_ID     --env production
+npx wrangler secret put STRAVA_CLIENT_SECRET --env production
+npx wrangler secret put APP_SHARED_TOKEN     --env production   # openssl rand -hex 32
+```
+
+Then put the same shared token in `App/Secrets.plist` (gitignored — never commit it;
+a public repo is worse than a binary, since git history is permanent):
+
+```xml
+<dict>
+  <key>RelaySharedToken</key><string>…same value…</string>
+  <key>RelayBaseURL</key><string>https://iloveme.nicholassutin.com</string>
+</dict>
+```
+
+Without that file the Strava card says "Add App/Secrets.plist to enable the relay"
+rather than offering a button that cannot work.
 
 ---
 

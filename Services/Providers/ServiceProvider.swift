@@ -5,6 +5,9 @@ import Foundation
 enum ConnectAffordance: Sendable {
     /// RFC 8628 device flow — no secret, no redirect leg.
     case deviceFlow
+    /// Browser consent, then the code is exchanged through the relay Worker.
+    /// Used where the provider demands a client_secret we refuse to embed.
+    case webRedirect
     /// The user pastes a long-lived token they generated on the provider's site.
     case pastedToken(prompt: String)
     /// Cannot be connected from the device at all, with the reason to show.
@@ -29,14 +32,24 @@ protocol ServiceProvider: Sendable {
 
     /// Fetch and render in one step. Implementations stay off the main actor.
     func rows(token: String) async throws -> [Row]
+
+    /// Whether token exchange and refresh must route through the relay Worker.
+    /// True where the provider demands a client_secret. Kept explicit rather than
+    /// inferred from `connect`, since a future provider could use a browser
+    /// redirect without needing a secret.
+    var usesRelay: Bool { get }
 }
 
 extension ServiceProvider {
+    var usesRelay: Bool { false }
+
     /// Most providers are plain OAuth apps that need a client ID compiled in.
     var isConnectable: Bool {
         switch connect {
         case .pastedToken: true          // the user brings their own credential
         case .deviceFlow: config.isConfigured
+        // Needs both a client ID and a relay to exchange the code against.
+        case .webRedirect: config.isConfigured && TokenRelay.configured != nil
         case .unavailable: false
         }
     }

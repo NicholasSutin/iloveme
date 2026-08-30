@@ -189,7 +189,7 @@ Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
 | Service | Registered | Client ID | Works? | Next action |
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
-| **Strava** | yes | in place | **no** | run the callback-domain experiment |
+| **Strava** | yes | in place | **sign-in yes, token no** | set Worker secrets |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
 | **Pinterest** | no | — | no | privacy policy + domain, then Trial review |
 
@@ -201,9 +201,10 @@ Paused 2026-08-28. Full detail and next actions in **docs/registration.md**.
   building anything. See docs/registration.md.
 - **Notion**: paste-in path implemented and ready. Use an internal-integration token,
   NOT OAuth — reasoning recorded in docs/registration.md.
-- **Pinterest**: data client complete. Blocked on a privacy policy at a real domain
-  before Pinterest will review for Trial. Once approved, Trial can mint a test token
-  without OAuth, so it needs a `.pastedToken` affordance rather than the Worker.
+- **Pinterest**: data client complete. The privacy policy is live at
+  iloveme.nicholassutin.com/privacy, so it is now blocked purely on Pinterest's app
+  review. Once approved, Trial can mint a test token without OAuth, so it needs a
+  `.pastedToken` affordance — never the relay.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 

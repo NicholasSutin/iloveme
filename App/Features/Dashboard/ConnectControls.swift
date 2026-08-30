@@ -26,6 +26,18 @@ struct ConnectControls: View {
                     .font(.subheadline)
                     .buttonStyle(.bordered)
             }
+        case .webRedirect:
+            if provider.config.isConfigured && TokenRelay.configured != nil {
+                Button("Connect") { card.connectWebRedirect() }
+                    .font(.subheadline)
+                    .buttonStyle(.bordered)
+            } else {
+                Text(provider.config.isConfigured
+                     ? "Add App/Secrets.plist to enable the relay"
+                     : "Add a client ID")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
         case .pastedToken(let prompt):
             PastedTokenField(prompt: prompt, card: card)
         case .unavailable(let reason):

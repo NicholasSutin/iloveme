@@ -11,8 +11,10 @@ struct StravaProvider: ServiceProvider {
         token: "https://www.strava.com/oauth/token",
         scopes: ["activity:read_all"])
 
-    let connect = ConnectAffordance.unavailable(
-        reason: "Token exchange requires the Worker proxy (not built yet)")
+    // Browser consent on Strava, then the code is exchanged through the relay,
+    // because Strava requires a client_secret at exchange AND at every refresh.
+    let connect = ConnectAffordance.webRedirect
+    let usesRelay = true
 
     var placeholderRows: [Row] { Summary().rows }
 
