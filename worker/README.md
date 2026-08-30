@@ -51,14 +51,21 @@ why the example file is committed and the real one is not.
 
 Never in `wrangler.jsonc`, never in source.
 
+Only **two** are secrets. `STRAVA_CLIENT_ID` is public and lives in `vars` in
+`wrangler.jsonc`, because it is already committed in `StravaProvider.swift` and
+appears in every authorize URL.
+
 ```bash
 npx wrangler secret put STRAVA_CLIENT_SECRET --env staging
 npx wrangler secret put APP_SHARED_TOKEN     --env staging
-npx wrangler secret put STRAVA_CLIENT_ID     --env staging
 # repeat with --env production
 ```
 
 Generate the shared token with `openssl rand -hex 32`.
+
+`APP_SHARED_TOKEN` must match `RelaySharedToken` in the app's `App/Secrets.plist`.
+Rotating it therefore breaks every installed build until one ships with the new
+value — a non-event with one user, but worth knowing before it surprises you.
 
 ## Environments
 
@@ -95,14 +102,12 @@ repeated per environment or it is simply absent there.
 | `POST /strava/exchange` | bearer | `{code}` → Strava token JSON |
 | `POST /strava/refresh` | bearer | `{refresh_token}` → fresh token JSON |
 
-`/strava/callback` is public because Strava redirects the *browser* there, and a
-browser carries no shared secret. It performs no exchange and holds no secret — it
-only converts an https redirect into the app's custom scheme, which is necessary
-because `ASWebAuthenticationSession` can intercept custom schemes but never https.
-
-**It may not be needed at all.** Run the callback-domain experiment in
-`docs/registration.md` first: if Strava accepts a bare `iloveme` callback domain,
-the redirect stays entirely in the app and this route can be deleted.
+There is deliberately **no `/strava/callback`** route. Strava matches the
+redirect_uri's host against the Authorization Callback Domain (`oauth`), so the app
+redirects straight to `iloveme://oauth` and never passes through here. A Worker-hosted
+bounce would itself be rejected, since this hostname is not the callback domain. The
+route existed briefly and was removed once measured; `git log` has it if the callback
+domain ever changes.
 
 ## Deploying for the Pinterest privacy-policy URL
 

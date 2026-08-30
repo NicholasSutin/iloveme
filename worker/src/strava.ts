@@ -56,40 +56,6 @@ async function requestToken(
 
 export const strava = new Hono<{ Bindings: Env }>();
 
-/**
- * PUBLIC — no app token. Strava redirects the *browser* here, and a browser
- * carries no shared secret.
- *
- * ⚠️ CONFIRMED UNNECESSARY 2026-08-29 — kept only as a fallback.
- *
- * Strava matches the redirect_uri's HOST against the Authorization Callback
- * Domain and ignores the scheme, so with domain `oauth` the app redirects
- * straight to `iloveme://oauth` and never comes here. This route would in fact
- * be REJECTED as a redirect_uri, since iloveme.nicholassutin.com is not the
- * callback domain — using it would mean changing the domain, which would then
- * break the direct redirect. Pick one; the direct one is in use.
- *
- * Delete this once you are confident the direct redirect is permanent.
- *
- * Carries no secret and performs no exchange — it just forwards the opaque code
- * to the app, which then calls /strava/exchange.
- */
-strava.get("/callback", (c) => {
-  const incoming = new URL(c.req.url);
-  const target = new URL(`${c.env.APP_REDIRECT_SCHEME}://oauth`);
-
-  const error = incoming.searchParams.get("error");
-  const code = incoming.searchParams.get("code");
-  const state = incoming.searchParams.get("state");
-
-  if (error) target.searchParams.set("error", error);
-  else if (code) target.searchParams.set("code", code);
-  else target.searchParams.set("error", "missing_code");
-  if (state) target.searchParams.set("state", state);
-
-  return c.redirect(target.toString(), 302);
-});
-
 strava.use("/exchange", requireAppToken);
 strava.use("/refresh", requireAppToken);
 

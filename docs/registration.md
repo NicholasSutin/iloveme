@@ -110,9 +110,9 @@ independent of the callback-domain question. Remaining for Strava, now that the 
 
 ```bash
 cd worker
-npx wrangler secret put STRAVA_CLIENT_ID     --env production
 npx wrangler secret put STRAVA_CLIENT_SECRET --env production
 npx wrangler secret put APP_SHARED_TOKEN     --env production   # openssl rand -hex 32
+# STRAVA_CLIENT_ID is NOT a secret — it lives in wrangler.jsonc vars.
 ```
 
 Then put the same shared token in `App/Secrets.plist` (gitignored — never commit it;

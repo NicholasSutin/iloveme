@@ -37,8 +37,8 @@ enum HTTP {
         return try await send(request)
     }
 
-    /// Form-encoded POST body. Split out from `TokenExchange` because the device
-    /// flow needs the raw response on a 200 that carries `{"error": …}`.
+    /// Form-encoded POST body. Returns the request rather than sending it, because
+    /// the device flow needs the raw response on a 200 that carries `{"error": …}`.
     static func form(_ url: URL, params: [String: String], headers: [String: String] = [:]) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

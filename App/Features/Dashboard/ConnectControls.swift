@@ -27,7 +27,9 @@ struct ConnectControls: View {
                     .buttonStyle(.bordered)
             }
         case .webRedirect:
-            if provider.config.isConfigured && TokenRelay.configured != nil {
+            // The connectable rule lives on the provider — this asks only which of
+            // the two prerequisites is missing, to say something useful about it.
+            if provider.isConnectable {
                 Button("Connect") { card.connectWebRedirect() }
                     .font(.subheadline)
                     .buttonStyle(.bordered)
