@@ -27,7 +27,9 @@ struct ConnectControls: View {
                     .buttonStyle(.bordered)
             }
         case .pastedToken(let prompt):
-            PastedTokenField(prompt: prompt, card: card)
+            PastedSecretField(prompt: prompt) { await card.savePastedToken($0) }
+        case .clientCredentials(let prompt):
+            PastedSecretField(prompt: prompt) { await card.saveClientSecret($0) }
         case .unavailable(let reason):
             Text(reason)
                 .font(.caption2)
@@ -36,11 +38,14 @@ struct ConnectControls: View {
     }
 }
 
-/// Owns the in-progress token text, so the cards that never paste a token do not
-/// each carry an empty string of state.
-private struct PastedTokenField: View {
+/// Owns the in-progress text, so the cards that never paste anything do not each
+/// carry an empty string of state. Takes a closure rather than a `ServiceCard`
+/// because what a pasted string *means* differs by affordance — an access token for
+/// `.pastedToken`, an app secret for `.clientCredentials` — while the field itself
+/// is identical.
+private struct PastedSecretField: View {
     let prompt: String
-    let card: ServiceCard
+    let save: (String) async -> Void
     @State private var token = ""
 
     var body: some View {
@@ -51,7 +56,7 @@ private struct PastedTokenField: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
             Button("Save") {
-                Task { await card.savePastedToken(token); token = "" }
+                Task { await save(token); token = "" }
             }
             .font(.subheadline)
             .buttonStyle(.bordered)

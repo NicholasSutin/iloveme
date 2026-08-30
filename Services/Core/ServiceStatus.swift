@@ -47,17 +47,21 @@ enum ServiceStatus: Equatable, Sendable {
 
     /// The one error-to-chip rule. Apple's messages are full sentences; a chip has
     /// room for a few words, and the common HealthKit failures deserve real names.
-    static func failure(_ error: Error) -> ServiceStatus {
+    /// `unauthorized` is what a 401 means *for this caller*. The default suits a
+    /// stored token that aged out; a card that just handed over a credential the
+    /// user typed says so instead, because "paste a new token" is actively wrong
+    /// advice when the field in front of them asks for a secret.
+    static func failure(_ error: Error,
+                        unauthorized: String = "Token expired — paste a new one") -> ServiceStatus {
         // The chip has room for a few words; a truncated DecodingError is useless
         // for diagnosis, so the whole thing goes to the console. Default privacy,
         // since an upstream error body could in principle carry something sensitive.
         Logger(subsystem: "com.nick.iloveme", category: "service")
             .error("\(String(describing: error))")
-        // Pinterest's tokens expire by design, so 401 is a routine state here, not
-        // an anomaly — and its body is JSON that says nothing useful once truncated
-        // to chip width. `.failed` is idle, so the paste field is already showing
-        // underneath: the chip only has to say which field to fill.
-        if let http = error as? HTTPError, http.status == 401 { return .failed("Token expired — paste a new one") }
+        // A 401 body is JSON that says nothing useful once truncated to chip width,
+        // and `.failed` is idle, so the paste field is already showing underneath.
+        // The chip's whole job is to name which field to fix.
+        if let http = error as? HTTPError, http.status == 401 { return .failed(unauthorized) }
         let description = error.localizedDescription
         if description.localizedCaseInsensitiveContains("entitlement") { return .failed("Entitlement missing") }
         if description.localizedCaseInsensitiveContains("authoriz") { return .failed("Not authorized") }

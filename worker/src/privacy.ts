@@ -52,7 +52,8 @@ export function privacyPage(contactEmail: string): string {
     <li><strong>Connected services.</strong> If you connect one, the app reads a narrow,
       read-only slice: GitHub contribution counts, Notion page titles and edit dates,
       Pinterest board and pin names.</li>
-    <li><strong>Access tokens</strong> for the services you connect.</li>
+    <li><strong>Access tokens</strong> for the services you connect, and for Pinterest
+      the app secret it uses to renew them.</li>
   </ul>
   <p>The app requests read-only scopes. It never writes to, posts to, or modifies any
   connected account.</p>
@@ -95,8 +96,9 @@ export function privacyPage(contactEmail: string): string {
 
   <h2>Keeping and deleting data</h2>
   <ul>
-    <li>Tokens are kept until you disconnect that service or delete the app.</li>
-    <li>Disconnecting a service erases its token from the Keychain immediately.</li>
+    <li>Tokens and secrets are kept until you disconnect that service or delete the app.</li>
+    <li>Disconnecting a service erases its token, and any secret it stored, from the
+      Keychain immediately.</li>
     <li>Deleting the app removes everything it stored, including the step snapshot.</li>
     <li>You can also revoke access from the service's own settings at any time.</li>
   </ul>

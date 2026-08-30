@@ -62,6 +62,25 @@ struct TokenStore: Sendable {
     func hasToken(for kind: ServiceKind) -> Bool { exists(account: kind.rawValue) }
 
     func clearToken(for kind: ServiceKind) { delete(account: kind.rawValue) }
+
+    // MARK: Client secrets, for providers that mint their own tokens
+
+    /// Stored under a distinct account so the token can be replaced on every mint
+    /// without disturbing the secret that produced it.
+    ///
+    /// This is the only copy: `.clientCredentials` providers keep their secret here
+    /// rather than in the app binary or an xcconfig, so it is absent from the repo,
+    /// absent from the build, and removed with the rest of the account by
+    /// `disconnect()`.
+    private func secretAccount(_ kind: ServiceKind) -> String { "\(kind.rawValue).secret" }
+
+    func saveClientSecret(_ secret: String, for kind: ServiceKind) throws {
+        try save(secret, account: secretAccount(kind))
+    }
+
+    func clientSecret(for kind: ServiceKind) -> String? { read(account: secretAccount(kind)) }
+
+    func clearClientSecret(for kind: ServiceKind) { delete(account: secretAccount(kind)) }
 }
 
 struct KeychainError: LocalizedError {

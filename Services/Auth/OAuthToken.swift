@@ -1,9 +1,13 @@
 import Foundation
 
 /// Standard OAuth 2.0 token response. Providers vary in extras; unknown keys are
-/// ignored. `refreshToken`/`expiresIn` are decoded but not yet acted on — there is
-/// no refresh path until the Worker proxy exists, so an expired token currently
-/// surfaces as an HTTP 401 on the next load.
+/// ignored.
+///
+/// `expiresIn` drives `isExpired`, which `ServiceCard.currentToken()` checks before
+/// every load: a `.clientCredentials` provider mints a replacement on the spot.
+/// `refreshToken` is still decoded but unused — acting on it means the
+/// authorization-code flow, which needs a server. Providers that can neither renew
+/// nor refresh surface expiry as an HTTP 401 on the next load, deliberately.
 struct OAuthToken: Codable, Sendable {
     var accessToken: String
     var refreshToken: String?

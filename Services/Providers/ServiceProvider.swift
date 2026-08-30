@@ -9,6 +9,10 @@ enum ConnectAffordance: Sendable {
     /// may not expire — Notion's does not, Pinterest's does — so the paste field
     /// stays reachable from `.failed`, which `ServiceStatus.isIdle` guarantees.
     case pastedToken(prompt: String)
+    /// The user pastes the app's own client secret once; the app then mints and
+    /// renews its own tokens from it, with no further interaction. Only honest
+    /// where the app owner and the user are the same person.
+    case clientCredentials(prompt: String)
     /// Cannot be connected from the device at all, with the reason to show.
     case unavailable(reason: String)
 }
@@ -38,7 +42,7 @@ extension ServiceProvider {
     var isConnectable: Bool {
         switch connect {
         case .pastedToken: true          // the user brings their own credential
-        case .deviceFlow: config.isConfigured
+        case .deviceFlow, .clientCredentials: config.isConfigured
         case .unavailable: false
         }
     }

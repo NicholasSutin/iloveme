@@ -168,9 +168,12 @@ is on file there; it is simply never exercised.
 
 ### Live wiring status (2026-08-30)
 Endpoints verified against official docs — see docs/api-notes.md (injection-screened: PASS).
-Reality check: Notion and Pinterest both require a client_secret for full OAuth, so
-both take a pasted token instead. Notion's does not expire; Pinterest's does. GitHub
-is secret-free via the device flow. No integration needs a server-side secret.
+Reality check: neither Notion nor Pinterest offers PKCE or a device flow, so neither
+can do user OAuth without a server. Notion takes a pasted integration token;
+Pinterest takes a pasted app secret and mints its own tokens from it via the
+client-credentials grant. GitHub is credential-free via the device flow. **No
+integration needs a server-side secret** — Pinterest's lives in the Keychain on the
+device, which is why the relay Worker stayed deleted.
 
 Full detail and next actions in **docs/registration.md**.
 
@@ -178,18 +181,17 @@ Full detail and next actions in **docs/registration.md**.
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
-| **Pinterest** | yes, approved | `1606244` | wired | paste a client-credentials token |
+| **Pinterest** | yes, approved | `1606244` | wired | paste the app secret once |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
 - **Notion**: paste-in path implemented and ready. Use an internal-integration token,
   NOT OAuth — reasoning recorded in docs/registration.md.
-- **Pinterest**: approved 2026-08-30. Connects by pasting a **client-credentials**
-  token — one `curl`, 30-day lifetime, secret stays on the laptop. Not the portal's
-  "Generate Access Tokens" button, whose *test* tokens expire in **24 hours**. The
-  grant acts on behalf of the app owner, who is the only user, so the
-  authorization-code flow's consent leg would be pure overhead; both endpoints
-  accept it per Pinterest's OpenAPI spec. Command and scopes in docs/registration.md;
-  sources in docs/pinterest-docs/.
+- **Pinterest**: approved 2026-08-30. Paste the **app secret** once; the app mints
+  and renews its own tokens via the client-credentials grant. The grant acts on
+  behalf of the app owner, who is the only user here, so the authorization-code
+  flow's consent leg would be ceremony with nobody to perform it for. The secret
+  lives in the Keychain only — never the repo, an xcconfig, or the binary. Needs 2FA
+  on the account. Sources in docs/pinterest-docs/.
 - **Strava was removed 2026-08-29.** Its auth worked end to end, but Strava's
   Developer Program requires a paid subscription on the account owning the API
   application, so it returned 403 `Application/Status/Inactive` for all data. The
@@ -205,19 +207,20 @@ Pinterest's review requires. Staging deploys as `iloveme-app`; production as
 `iloveme` on `iloveme.nicholassutin.com`.
 
 It was built to hold Strava's `client_secret`. With Strava gone it **holds no secrets
-and receives no user data** — every remaining integration is secret-free. `git log`
-has the relay if one is ever needed again.
+and receives no user data**. Pinterest's app secret is a device-side credential in
+the Keychain, not a server-side one, so nothing needs to move back here. `git log`
+has the relay if a provider ever genuinely requires one.
 
 Xcode cannot see `worker/`: only App/, Services/, Shared/ and Widget/ are
 synchronized roots. Confirmed by building both targets with an invalid `.swift` file
 planted in `worker/src/` — both succeeded and it never reached a compile step.
 
 ### Not built (deliberate)
-- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. GitHub's
-  and Notion's tokens do not expire, so nothing breaks there. **Pinterest's lasts 30
-  days** — refreshing automatically needs the client secret, hence a server, hence
-  the relay that went with Strava. Twelve re-pastes a year is the cheaper trade, so
-  a 401 surfaces as "Token expired — paste a new one" with the paste field already
-  beneath it.
+- **Refresh-token grant.** Still unbuilt, and now unnecessary. `OAuthToken.isExpired`
+  *is* used — `ServiceCard.currentToken()` checks it before every load and a
+  `.clientCredentials` provider mints a replacement on the spot, so Pinterest renews
+  itself without a server. GitHub's and Notion's tokens do not expire. A provider
+  that could neither renew nor refresh would surface expiry as a 401 chip naming the
+  field to fix; none currently exists.
 - Notion OAuth (access token chosen instead — see docs/registration.md)
 - HealthKit background delivery — see the entitlement note above.

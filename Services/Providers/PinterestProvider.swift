@@ -10,27 +10,33 @@ struct PinterestProvider: ServiceProvider {
         clientID: "1606244",   // the portal calls this "App ID"; public, safe to commit
         authorize: "https://www.pinterest.com/oauth/",
         token: "https://api.pinterest.com/v5/oauth/token",
-        scopes: ["boards:read", "pins:read"])   // unused while the token is pasted
+        // Requested at mint time. The `_secret` pair is included deliberately: a
+        // dashboard that silently omits half your boards is more confusing than one
+        // that shows them, and this runs on the owner's own phone. Drop those two
+        // to exclude secret boards.
+        scopes: ["boards:read", "boards:read_secret", "pins:read", "pins:read_secret"])
 
-    /// **Paste a client-credentials token, not the portal button's.** The portal's
-    /// "Generate Access Tokens" mints a *test* token that expires in 24 hours —
-    /// fine to prove the card works, useless as a connection. The client-credentials
-    /// grant is one `curl` against `/v5/oauth/token` and lasts 30 days; Pinterest
-    /// describes it as acting "on behalf of the current app owner", which is exactly
-    /// what a single-user dashboard wants. The client secret stays on the laptop
-    /// that runs the curl — it never reaches this binary or the repo.
+    /// The app mints its own tokens from the app secret, pasted once and kept in
+    /// the Keychain. No portal round-trip, no browser leg, no server.
     ///
-    /// Both calls below accept it: `boards/list` and `boards/list_pins` each list
+    /// Pinterest issues client-credentials tokens "on behalf of the current app
+    /// owner", and here the owner is the only user — so the authorization-code
+    /// flow's consent step would be ceremony with nobody to consent. Both calls
+    /// below accept the grant: `boards/list` and `boards/list_pins` each list
     /// `client_credentials` in their `security` block in Pinterest's official
-    /// OpenAPI spec (v5.28.0). Recipe and scopes in docs/registration.md.
+    /// OpenAPI spec (v5.28.0).
     ///
-    /// Sandbox tokens are a dead end here regardless — they are only valid against
-    /// `api-sandbox.pinterest.com`, which `base` below is not, and Pinterest states
-    /// the two are not interchangeable in either direction.
+    /// Explicitly *not* the portal's "Generate Access Tokens" button, whose tokens
+    /// Pinterest classes as test tokens and expires after 24 hours. Minted tokens
+    /// last 30 days and `ServiceCard` renews them silently on expiry, so this card
+    /// needs no maintenance after the first paste.
     ///
-    /// 30 days still means expiry is a routine state, so `ServiceStatus` names the
-    /// resulting 401 rather than printing its raw JSON body.
-    let connect = ConnectAffordance.pastedToken(prompt: "Access token")
+    /// Sandbox tokens cannot work here regardless — they are only valid against
+    /// `api-sandbox.pinterest.com`, which `base` below is not.
+    ///
+    /// Requires two-factor auth on the Pinterest account; Pinterest mandates it for
+    /// this grant type. See docs/registration.md.
+    let connect = ConnectAffordance.clientCredentials(prompt: "App secret")
 
     var placeholderRows: [Row] { [Board]().rows }
 

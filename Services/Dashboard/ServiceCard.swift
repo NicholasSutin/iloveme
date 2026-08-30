@@ -21,6 +21,16 @@ final class ServiceCard: Identifiable {
 
     private var provider: any ServiceProvider { kind.provider }
 
+    /// What a 401 means here, in terms of the field the user is looking at. A
+    /// `.clientCredentials` card has no token field to point them at — the secret
+    /// is what it holds, so the secret is what a rejection is about.
+    private var unauthorizedHint: String {
+        switch provider.connect {
+        case .clientCredentials: "Secret rejected — check it"
+        default: "Token expired — paste a new one"
+        }
+    }
+
     init(kind: ServiceKind) {
         self.kind = kind
         self.rows = kind.provider.placeholderRows
@@ -32,20 +42,41 @@ final class ServiceCard: Identifiable {
     // MARK: Refresh
 
     func load() async {
-        guard let token = TokenStore.shared.token(for: kind) else {
+        guard TokenStore.shared.hasToken(for: kind) else {
             status = provider.idleStatus
             return
         }
         status = .connecting
 
         do {
+            guard let token = try await currentToken() else {
+                status = provider.idleStatus
+                return
+            }
             rows = try await provider.rows(token: token.accessToken)
             status = .updatedNow()
         } catch is CancellationError {
             status = provider.idleStatus
         } catch {
-            status = .failure(error)
+            status = .failure(error, unauthorized: unauthorizedHint)
         }
+    }
+
+    /// The stored token, renewed first if it has expired and the provider can renew
+    /// without the user. This is what finally uses `OAuthToken.isExpired`.
+    ///
+    /// A provider that cannot renew gets its expired token back unchanged, so the
+    /// resulting 401 still surfaces as "Token expired — paste a new one" rather than
+    /// being pre-empted by a vaguer message here.
+    private func currentToken() async throws -> OAuthToken? {
+        let stored = TokenStore.shared.token(for: kind)
+        if let stored, !stored.isExpired { return stored }
+        guard case .clientCredentials = provider.connect,
+              let secret = TokenStore.shared.clientSecret(for: kind) else { return stored }
+
+        let minted = try await ClientCredentialsFlow(config: provider.config).token(secret: secret)
+        try TokenStore.shared.saveToken(minted, for: kind)
+        return minted
     }
 
     // MARK: Connect
@@ -59,7 +90,26 @@ final class ServiceCard: Identifiable {
             try TokenStore.shared.saveToken(OAuthToken(accessToken: trimmed), for: kind)
             await load()
         } catch {
-            status = .failure(error)
+            status = .failure(error, unauthorized: unauthorizedHint)
+        }
+    }
+
+    /// `.clientCredentials` path: the user brings the app secret once, and the app
+    /// mints its own tokens from it from then on.
+    ///
+    /// Minting before storing doubles as validation — a mistyped secret fails here,
+    /// visibly, instead of being persisted and failing on every later load.
+    func saveClientSecret(_ raw: String) async {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        status = .connecting
+        do {
+            let token = try await ClientCredentialsFlow(config: provider.config).token(secret: trimmed)
+            try TokenStore.shared.saveClientSecret(trimmed, for: kind)
+            try TokenStore.shared.saveToken(token, for: kind)
+            await load()
+        } catch {
+            status = .failure(error, unauthorized: unauthorizedHint)
         }
     }
 
@@ -93,13 +143,16 @@ final class ServiceCard: Identifiable {
         } catch is CancellationError {
             status = provider.idleStatus
         } catch {
-            status = .failure(error)
+            status = .failure(error, unauthorized: unauthorizedHint)
         }
     }
 
     func disconnect() {
         connectTask?.cancel()
         TokenStore.shared.clearToken(for: kind)
+        // Otherwise "disconnect" would leave the credential that mints tokens behind,
+        // and the next load would silently reconnect.
+        TokenStore.shared.clearClientSecret(for: kind)
         rows = provider.placeholderRows
         status = provider.idleStatus
     }

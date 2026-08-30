@@ -9,7 +9,8 @@ import { privacyPage } from "./privacy";
  * binary cannot hold. Strava was dropped — its Developer Program requires a paid
  * subscription on the owning account — and with it went the only route that needed
  * a secret. Every remaining integration is secret-free: GitHub uses the device
- * flow, Notion and Pinterest use pasted tokens.
+ * flow, Notion takes a pasted token, and Pinterest mints its own from an app
+ * secret held in the device Keychain.
  *
  * So this Worker now holds no secrets at all. If a provider ever needs one again,
  * `git log` has the relay: routes, timing-safe bearer gate, and sanitised errors.

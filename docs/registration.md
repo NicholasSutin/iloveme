@@ -88,82 +88,89 @@ Leave the secret in the portal. Putting it in the app would embed a credential i
 binary; putting it in the Worker would resurrect the authenticated relay that
 Strava's removal deleted.
 
-### Which token: client credentials, not the portal button
+### How it connects: paste the app secret once
 
-Three ways to get a token. The portal button is the obvious one and the worst one.
+The app uses the **client-credentials grant** and mints its own tokens. You paste
+the app secret one time; `ServiceCard` renews the token automatically whenever it
+expires. There is nothing to do again.
 
-| | Portal "Generate Access Tokens" | **Client credentials** | Authorization code |
-|---|---|---|---|
-| Lifetime | **24 hours** | **30 days** | 30 days + refresh |
-| Effort | click | one `curl` | browser consent + server |
-| Needs the secret? | no | yes, on your laptop only | yes, on a server |
-| Re-paste cadence | daily | ~monthly | never |
-
-Pinterest classes portal tokens as *test* tokens:
-
-> "Once your app is approved for Trial access you can generate a token to test the
-> API without setting up the Oauth flow. Test tokens expire after 24 hours."
-> — `docs/pinterest-docs/connect-app.md`
-
-Do not confuse that with the 30 days (`expires_in: 2592000`) quoted throughout
-`set-up-authentication-and-authorization.md` — that describes tokens issued by the
-OAuth endpoint, which is what the other two columns use.
-
-### Why client credentials fits this app exactly
-
-Pinterest's own description:
+Pinterest's own description of the grant:
 
 > "the access token generated from this grant type is on behalf of the current app
 > owner … Automate API calls for your developer account by setting up CRON jobs."
 > — `docs/pinterest-docs/set-up-authentication-and-authorization.md`
 
-The app owner *is* the only user. There is no third party to authorize, so the
-authorization-code flow's whole purpose — consent on behalf of someone else — is
-overhead here. No browser leg, no redirect, no code, no server.
+The app owner is the only user this dashboard will ever have. The
+authorization-code flow exists to get consent from a *third party*, and there is no
+third party here — so its browser leg, redirect URI, URL scheme and token-exchange
+server are all ceremony with nobody to perform it for.
 
-**Verified against Pinterest's official OpenAPI spec (v5.28.0,
-`github.com/pinterest/api-description`, `v5/openapi.json`)** — both endpoints this
-provider calls accept the grant:
+**Verified against the official OpenAPI spec** (v5.28.0,
+`github.com/pinterest/api-description`) — both endpoints accept the grant:
 
 ```
-GET /boards                  → security: [pinterest_oauth2: [boards:read],
-                                          client_credentials: [boards:read]]
-GET /boards/{board_id}/pins  → security: [pinterest_oauth2: [boards:read, pins:read],
-                                          client_credentials: [boards:read, pins:read]]
+GET /boards                  security: client_credentials [boards:read]
+GET /boards/{board_id}/pins  security: client_credentials [boards:read, pins:read]
 ```
 
-Requirement: **two-factor auth must be enabled** on the Pinterest account, which
-Pinterest mandates for this grant type.
+### Where the secret lives
 
-### The command
+**The iOS Keychain, and nowhere else.** Not in the repo, not in an xcconfig, not
+compiled into the binary, not in Cloudflare. `TokenStore` stores it under
+`pinterest.secret`, beside the token it mints, and `disconnect()` deletes both.
 
-Run it on your machine; the secret never leaves it. `read -rs` keeps it off screen
-and out of shell history.
+This matters beyond tidiness: the repo is public, and Pinterest runs GitHub secret
+scanning that revokes leaked secrets within 24 hours
+(`set-up-authentication-and-authorization.md`). A secret that never reaches a file
+cannot be committed by accident.
 
-```bash
-read -rs "?Pinterest app secret: " S && curl -sX POST https://api.pinterest.com/v5/oauth/token -u "1606244:$S" --data-urlencode 'grant_type=client_credentials' --data-urlencode 'scope=boards:read,boards:read_secret,pins:read,pins:read_secret'; unset S
-```
+The alternative — the relay Worker holding the secret — needs a shared token in the
+app binary to authenticate the app to the Worker, and *that* is extractable. It
+trades a secret on your own device for a server plus a credential with the same
+weakness. Not worth it here.
 
-`boards:read` alone covers public boards; the `_secret` scopes add secret boards and
-pins, and are available to this grant (confirmed in the spec's `securitySchemes`).
-Drop them if you would rather the dashboard not surface secret boards.
+### Why not the other two token options
 
-The response's `access_token` carries a `pinc` prefix. Paste it into the app →
-Pinterest card → **Access token** → Save. Re-run monthly.
+| | Portal "Generate Access Tokens" | **Client credentials** | Authorization code |
+|---|---|---|---|
+| Lifetime | 24 hours | 30 days, auto-renewed | 30 days + refresh |
+| User action | paste daily | **paste once** | paste once |
+| Needs a server | no | no | yes |
 
-### If it ever needs to be permanent
+Pinterest classes portal tokens as *test* tokens:
 
-The authorization-code flow gives a 30-day access token plus a *continuous* refresh
-token (60-day, refreshable indefinitely). Refreshing needs HTTP Basic with the
-client secret, so it needs a server — the relay Worker deleted with Strava, plus a
-URL scheme back in `Info.plist` for the redirect leg.
+> "Test tokens expire after 24 hours." — `docs/pinterest-docs/connect-app.md`
 
-**Twelve pastes a year is cheaper than a server.** Revisit only if that stops being
-true.
+Do not confuse that with the 30 days (`expires_in: 2592000`) quoted throughout
+`set-up-authentication-and-authorization.md`, which describes tokens issued by the
+OAuth endpoint — what this app now uses.
 
-The app handles expiry honestly meanwhile: a 401 shows **"Token expired — paste a
-new one"** with the paste field already visible beneath it, because `.failed` counts
-as idle in `ServiceStatus`. Pasting overwrites, so there is no disconnect step.
+Sandbox tokens are a dead end regardless: only valid against
+`api-sandbox.pinterest.com`, and Pinterest states the two environments' tokens are
+not interchangeable in either direction.
+
+### Setup
+
+1. **Enable two-factor auth** on the Pinterest account. Pinterest mandates it for
+   this grant type; without it, minting fails.
+2. Portal → **My apps** → **Manage** → copy the **app secret key**.
+3. App → Pinterest card → paste into **App secret** → Save.
+
+The app immediately exchanges it for a token, which doubles as validation: a wrong
+secret shows **"Secret rejected — check it"** and is not stored. A correct one
+shows your boards.
+
+Scopes requested at mint time are in `PinterestProvider.config` —
+`boards:read`, `boards:read_secret`, `pins:read`, `pins:read_secret`. The `_secret`
+pair includes secret boards; drop those two entries to exclude them.
+
+### Verified 2026-08-30
+
+Against the live endpoint with a deliberately wrong secret, the app got
+`401 {"code":2,"message":"Authentication failed."}` — a 401 rather than a 400,
+meaning Pinterest parsed the request and rejected only the credential. The request
+shape (Basic auth, `grant_type`, scope encoding) is therefore confirmed correct end
+to end; the real secret is the only untested variable.
 
 ---
 
