@@ -58,8 +58,8 @@ const BODY = `
   <section class="hero">
     <span class="pill">iPhone &middot; Lock Screen &amp; Home Screen widgets</span>
     <h1>Your day, in one quiet place.</h1>
-    <p class="tagline">A personal health and wellness dashboard. Your day's activity,
-    sleep and workouts from Apple Health, next to the things you already track somewhere
+    <p class="tagline">A personal health and wellness dashboard. Your day's walking
+    and workouts from Apple Health, next to the things you already track somewhere
     else — with nothing shouting at you.</p>
   </section>
 
@@ -70,8 +70,8 @@ const BODY = `
         <span class="chip"><span class="dot"></span>Updated 09:12</span></div>
       <div class="row"><span>Steps</span><span>8,412</span></div>
       <div class="row"><span>Distance</span><span>6.14 km</span></div>
-      <div class="row"><span>Exercise</span><span>34 min</span></div>
-      <div class="row"><span>Sleep</span><span>7h 21m</span></div>
+      <div class="row"><span>Flights climbed</span><span>12</span></div>
+      <div class="row"><span>Walking speed</span><span>4.8 km/h</span></div>
       <div class="row"><span>Workouts this week</span><span>3</span></div>
     </div>
     <div class="card">
@@ -92,8 +92,9 @@ const BODY = `
 
   <h2>What it pulls together</h2>
   <ul class="grid">
-    <li><strong>Apple Health</strong><span>Steps, distance, flights climbed, active energy,
-      exercise minutes, resting heart rate, time asleep and workout counts.</span></li>
+    <li><strong>Apple Health</strong><span>Steps, distance, flights climbed, walking
+      speed and step length, plus your workout count — all from the phone's own
+      sensors, no watch required.</span></li>
     <li><strong>GitHub</strong><span>Contributions over the last 7 and 30 days.</span></li>
     <li><strong>Notion</strong><span>Your most recently edited pages.</span></li>
     <li><strong>Pinterest</strong><span>Boards and the pins inside them.</span></li>
@@ -122,7 +123,7 @@ export function homePage(): string {
   return shell({
     title: "ILoveMe — a quiet personal health dashboard",
     description:
-      "A personal health and wellness dashboard for iPhone. Activity, sleep and " +
+      "A personal health and wellness dashboard for iPhone. Walking activity and " +
       "workouts from Apple Health alongside GitHub, Notion and Pinterest. " +
       "Private by construction.",
     body: BODY,

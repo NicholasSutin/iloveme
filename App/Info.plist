@@ -19,7 +19,7 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>Reads your activity, sleep and workout summaries to show them in the app and its widgets. Read-only — nothing is written back, and nothing leaves your device.</string>
+	<string>Reads your daily walking activity and workout count to show them in the app and its widgets. Read-only — nothing is written back, and nothing leaves your device.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

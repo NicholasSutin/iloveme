@@ -2,9 +2,10 @@
 
 iOS app + widget extension, one screen of text cards.
 
-- **Health** — steps, distance, flights climbed, active energy, exercise minutes,
-  resting heart rate, sleep and workout counts from HealthKit. Steps are mirrored to
-  an App Group snapshot for the Lock Screen / Home Screen widget.
+- **Health** — steps, distance, flights climbed, walking speed, step length and a
+  workout count from HealthKit. **iPhone-only by rule**: every metric comes from the
+  phone's motion coprocessor or barometer, so nothing needs an Apple Watch. Steps are
+  mirrored to an App Group snapshot for the Lock Screen / Home Screen widget.
 - **Three service integrations** — GitHub, Notion, Pinterest. Every data client is
   written; only auth is outstanding. See "Live wiring status" below.
 
@@ -186,8 +187,8 @@ Updated 2026-08-29. Full detail and next actions in **docs/registration.md**.
 - **Strava was removed 2026-08-29.** Its auth worked end to end, but Strava's
   Developer Program requires a paid subscription on the account owning the API
   application, so it returned 403 `Application/Status/Inactive` for all data. The
-  HealthKit card was expanded to cover some of the same ground — workouts, distance
-  and exercise minutes. See docs/registration.md for the full record.
+  HealthKit card was expanded to cover some of the same ground — workouts this week
+  and walking/running distance. See docs/registration.md for the full record.
 - Each provider's client lives in its own `Services/Providers/*Provider.swift`;
   token plumbing in `Services/Auth/`.
 

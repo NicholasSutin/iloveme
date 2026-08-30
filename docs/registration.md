@@ -61,9 +61,10 @@ Source: https://communityhub.strava.com/developers-api-7/code-inactive-on-all-ne
 server-side secret. Keeping it meant keeping the relay Worker's authenticated
 routes, a shared token duplicated between Cloudflare and the app binary, and refresh
 plumbing for its ~6h tokens — all for an integration gated behind a subscription.
-The HealthKit card was expanded instead: workouts this week, walking/running
-distance, exercise minutes and active energy cover some of the same ground from data
-the phone already has.
+The HealthKit card was expanded instead: workouts this week and walking/running
+distance cover some of the same ground from data the phone already has. Metrics
+needing an Apple Watch were deliberately excluded — see the note in
+`Services/Health/HealthMetric.swift`.
 
 **To bring it back:** subscribe on the account owning the API application, reactivate
 it in the API Settings Dashboard, then recover from `git log` — commit `4871d9d` has

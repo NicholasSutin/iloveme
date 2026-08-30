@@ -18,9 +18,12 @@ struct HealthMetric {
 
     /// Today's totals, in the order they appear on the card.
     ///
-    /// Steps, distance and flights come from the iPhone alone. Energy, exercise
-    /// minutes and resting heart rate generally need a Watch or a third-party app
-    /// writing into Health — they degrade to "—" rather than showing a false zero.
+    /// **iPhone-only by rule.** Every metric here comes from sensors the phone
+    /// actually has — the motion coprocessor and the barometer. Anything needing
+    /// Apple Watch hardware was removed: resting heart rate (no heart sensor),
+    /// active energy and Apple exercise minutes (both derived from continuous heart
+    /// rate), and sleep stages. A metric that can only ever render "—" is worse than
+    /// no row at all.
     static let today: [HealthMetric] = [
         HealthMetric(label: "Steps",
                      identifier: .stepCount,
@@ -40,29 +43,26 @@ struct HealthMetric {
                      options: .cumulativeSum,
                      format: { Int($0).formatted() }),
 
-        HealthMetric(label: "Active energy",
-                     identifier: .activeEnergyBurned,
-                     unit: .kilocalorie(),
-                     options: .cumulativeSum,
-                     format: { "\(Int($0).formatted()) kcal" }),
-
-        HealthMetric(label: "Exercise",
-                     identifier: .appleExerciseTime,
-                     unit: .minute(),
-                     options: .cumulativeSum,
-                     format: { "\(Int($0)) min" }),
-
-        HealthMetric(label: "Resting heart rate",
-                     identifier: .restingHeartRate,
-                     unit: HKUnit.count().unitDivided(by: .minute()),
+        // Mobility metrics: Apple derives these from the iPhone's own motion
+        // sensors while it is carried, so they need no wearable.
+        HealthMetric(label: "Walking speed",
+                     identifier: .walkingSpeed,
+                     unit: HKUnit.meter().unitDivided(by: .second()),
                      options: .discreteAverage,
-                     format: { "\(Int($0.rounded())) bpm" }),
+                     format: { String(format: "%.1f km/h", $0 * 3.6) }),
+
+        HealthMetric(label: "Step length",
+                     identifier: .walkingStepLength,
+                     unit: .meter(),
+                     options: .discreteAverage,
+                     format: { String(format: "%.0f cm", $0 * 100) }),
     ]
 
     /// Everything the app asks permission to read.
     static var readTypes: Set<HKObjectType> {
         var types = Set(today.map { $0.quantityType as HKObjectType })
-        types.insert(HKCategoryType(.sleepAnalysis))
+        // Workouts stay: they are not Watch-exclusive — iPhone running, cycling and
+        // fitness apps write them to HealthKit directly.
         types.insert(HKObjectType.workoutType())
         return types
     }

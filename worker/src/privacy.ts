@@ -48,8 +48,7 @@ export function privacyPage(contactEmail: string): string {
     <li><strong>Health data.</strong> Daily activity summaries read from Apple
       HealthKit, only after you grant permission in the system prompt, and only for
       the categories you approve: steps, walking and running distance, flights
-      climbed, active energy, exercise minutes, resting heart rate, time asleep, and
-      a count of workouts.</li>
+      climbed, walking speed, step length, and a count of workouts.</li>
     <li><strong>Connected services.</strong> If you connect one, the app reads a narrow,
       read-only slice: GitHub contribution counts, Notion page titles and edit dates,
       Pinterest board and pin names.</li>
