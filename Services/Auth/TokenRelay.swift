@@ -39,8 +39,7 @@ struct TokenRelay: Sendable {
             let detail = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"]
             throw ServiceError.provider("Relay \(status): \(detail.map { "\($0)" } ?? "failed")")
         }
-        var token = try JSONDecoder().decode(OAuthToken.self, from: data)
-        token.obtainedAt = Date()
-        return token
+        // obtainedAt defaults to now inside OAuthToken's decoder.
+        return try JSONDecoder().decode(OAuthToken.self, from: data)
     }
 }

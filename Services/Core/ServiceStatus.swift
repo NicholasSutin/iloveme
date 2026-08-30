@@ -1,3 +1,4 @@
+import OSLog
 import SwiftUI
 
 /// What a card's status chip shows. Purely a display type — it carries a string
@@ -47,6 +48,11 @@ enum ServiceStatus: Equatable, Sendable {
     /// The one error-to-chip rule. Apple's messages are full sentences; a chip has
     /// room for a few words, and the common HealthKit failures deserve real names.
     static func failure(_ error: Error) -> ServiceStatus {
+        // The chip has room for a few words; a truncated DecodingError is useless
+        // for diagnosis, so the whole thing goes to the console. Default privacy,
+        // since an upstream error body could in principle carry something sensitive.
+        Logger(subsystem: "com.nick.iloveme", category: "service")
+            .error("\(String(describing: error))")
         let description = error.localizedDescription
         if description.localizedCaseInsensitiveContains("entitlement") { return .failed("Entitlement missing") }
         if description.localizedCaseInsensitiveContains("authoriz") { return .failed("Not authorized") }

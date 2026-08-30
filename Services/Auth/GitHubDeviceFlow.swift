@@ -56,8 +56,7 @@ struct GitHubDeviceFlow: Sendable {
             try await Task.sleep(for: .seconds(interval))
             try Task.checkCancellation()
             let data = try await HTTP.send(poll)
-            if var token = try? decoder.decode(OAuthToken.self, from: data), !token.accessToken.isEmpty {
-                token.obtainedAt = Date()
+            if let token = try? decoder.decode(OAuthToken.self, from: data), !token.accessToken.isEmpty {
                 return token
             }
             switch (try? decoder.decode(PollError.self, from: data))?.error ?? "unknown" {
