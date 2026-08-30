@@ -63,8 +63,8 @@ export const strava = new Hono<{ Bindings: Env }>();
  * ⚠️ CONFIRMED UNNECESSARY 2026-08-29 — kept only as a fallback.
  *
  * Strava matches the redirect_uri's HOST against the Authorization Callback
- * Domain and ignores the scheme, so with domain `iloveme` the app redirects
- * straight to `iloveme://iloveme` and never comes here. This route would in fact
+ * Domain and ignores the scheme, so with domain `oauth` the app redirects
+ * straight to `iloveme://oauth` and never comes here. This route would in fact
  * be REJECTED as a redirect_uri, since iloveme.nicholassutin.com is not the
  * callback domain — using it would mean changing the domain, which would then
  * break the direct redirect. Pick one; the direct one is in use.

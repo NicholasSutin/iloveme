@@ -13,14 +13,15 @@ struct OAuthConfig: Sendable {
 
     /// The redirect target sent to the provider.
     ///
-    /// Host and scheme are BOTH the scheme name — `iloveme://iloveme` — which looks
-    /// odd but is load-bearing. Strava matches this URI's *host* against the
-    /// registered Authorization Callback Domain (`iloveme`) and ignores the scheme
-    /// entirely, so the conventional `iloveme://oauth` is rejected: its host is
-    /// `oauth`. Measured 2026-08-29; the table is in docs/registration.md.
+    /// The `oauth` host is not decorative. Strava matches this URI's *host* against
+    /// the registered Authorization Callback Domain and ignores the scheme entirely,
+    /// so the domain must be registered as `oauth` for this to be accepted — with a
+    /// domain of `iloveme` this exact URI is rejected. Verified both directions
+    /// against the live authorize endpoint 2026-08-29; table in docs/registration.md.
     ///
-    /// ASWebAuthenticationSession matches on scheme alone, so it intercepts this fine.
-    var redirectURI: String { "\(redirectScheme)://\(redirectScheme)" }
+    /// One URI serves every provider: ASWebAuthenticationSession delivers the callback
+    /// to the session that started it, so a shared host creates no ambiguity.
+    var redirectURI: String { "\(redirectScheme)://oauth" }
 
     /// Registered in App/Info.plist under CFBundleURLTypes.
     static let redirectScheme = "iloveme"

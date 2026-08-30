@@ -22,7 +22,7 @@ Fully working. Device flow, no secret, no proxy. Nothing left to do.
 
 https://github.com/settings/applications/new
 - Application name: ILoveMe
-- Homepage URL: https://github.com/NicholasSutin
+- Homepage URL: `https://iloveme.nicholassutin.com`
 - Callback URL: `iloveme://oauth`
 - **[x] Enable Device Flow** — confirmed ticked 2026-08-28. Without it,
   `POST /login/device/code` fails outright.
@@ -37,15 +37,19 @@ Client ID is in `GitHubProvider.swift`. The secret is never needed.
 https://www.strava.com/settings/api
 - Application name: ILoveMe
 - Category: Data Importer
-- Website: https://github.com/NicholasSutin
+- Website: `https://iloveme.nicholassutin.com`
 - Client ID `175321` → in `StravaProvider.swift`
-- Authorization Callback Domain: **`iloveme`** ✅
+- Authorization Callback Domain: **`oauth`** ✅
 
-### ✅ RESOLVED 2026-08-29 — use `iloveme://iloveme`, NOT `iloveme://oauth`
+### ✅ RESOLVED — callback domain `oauth`, redirect `iloveme://oauth`
 
-The experiment ran. Callback domain `iloveme` was accepted by the form — but form
-acceptance proves nothing (`localhost` was accepted too and was unusable). What
-settles it is hitting the authorize endpoint directly; no app or simulator needed:
+**Strava matches the redirect_uri's HOST against the Authorization Callback Domain
+and ignores the scheme.** So the domain is chosen to fit the conventional URI, not
+the other way round: domain `oauth` makes `iloveme://oauth` valid.
+
+Form acceptance proves nothing — `localhost` and `iloveme` were both accepted and
+neither did what was wanted. What settles it is the authorize endpoint, which needs
+no app or simulator:
 
 ```bash
 curl -o /dev/null -w '%{http_code}\n' \
@@ -55,32 +59,25 @@ curl -o /dev/null -w '%{http_code}\n' \
 400 with `{"field":"redirect_uri","code":"invalid"}` = rejected.
 302 to `https://www.strava.com/login` = accepted.
 
-Measured 2026-08-29 with callback domain `iloveme`:
+Measured against a known-bad control, before and after changing the domain — the
+verdicts invert exactly, which is what proves the rule rather than assuming it:
 
-| redirect_uri | host | verdict |
-|---|---|---|
-| `https://example.com/x` | example.com | 400 rejected *(control)* |
-| **`iloveme://oauth`** | oauth | **400 REJECTED** |
-| **`iloveme://iloveme`** | iloveme | **302 ACCEPTED** |
-| `http://iloveme/oauth` | iloveme | 302 accepted |
-| `https://iloveme/oauth` | iloveme | 302 accepted |
-| `iloveme://` | *(none)* | 400 rejected |
-| `iloveme:/oauth` · `iloveme:oauth` | *(none)* | 400 rejected |
-| `https://iloveme.nicholassutin.com/strava/callback` | that host | 400 rejected |
+| redirect_uri | host | domain `iloveme` | domain `oauth` (current) |
+|---|---|---|---|
+| `https://example.com/x` | example.com | 400 | 400 *(control)* |
+| **`iloveme://oauth`** | oauth | 400 | **302 ACCEPTED** |
+| `iloveme://iloveme` | iloveme | 302 | 400 |
+| `iloveme://strava` | strava | — | 400 |
+| `https://iloveme.nicholassutin.com/strava/callback` | that host | 400 | 400 |
 
-**Strava matches the redirect_uri's HOST against the callback domain and ignores the
-scheme.** Domain `iloveme` therefore demands host `iloveme`, so the working value is
-`iloveme://iloveme` — not the conventional `iloveme://oauth`. A custom scheme is
-fine; only the host is checked.
+Notes:
 
-Consequences:
-
-- The app's redirect URI is **`iloveme://iloveme`**. `ASWebAuthenticationSession`
-  matches on scheme alone, so it intercepts this without trouble.
-- **The Worker's `/strava/callback` bounce is not needed.** It is now dead code, and
-  would itself be rejected — `iloveme.nicholassutin.com` is not the callback domain.
-  Using it would mean changing the callback domain, which would then break the
-  direct custom-scheme redirect. Pick one; the direct one is cheaper.
+- One redirect URI serves every provider. `ASWebAuthenticationSession` delivers the
+  callback to the session that started it, so a shared `oauth` host is unambiguous —
+  and it matches the Callback URL already registered on the GitHub app.
+- **Do not** set the domain to `iloveme.nicholassutin.com`. That would force the
+  redirect back through the Worker and resurrect the `/strava/callback` bounce,
+  which is otherwise dead code.
 
 ### ✅ Verified in the simulator 2026-08-29
 
@@ -89,7 +86,8 @@ Built signed, run on an iPhone 17 sim, Strava card tapped:
 1. Connect button renders (the `.webRedirect` affordance).
 2. `ASWebAuthenticationSession` presents "ILoveMe Wants to Use strava.com to Sign In".
 3. Continue → **Strava's real login page loads**, not a redirect_uri error. This is
-   the live confirmation that `iloveme://iloveme` is accepted end to end.
+   the live confirmation that `iloveme://oauth` is accepted end to end. Re-verified
+   after the domain changed from `iloveme` to `oauth`.
 4. Dismissing the sheet returns the card to "Not connected", not an error —
    `ASWebAuthenticationSessionError.canceledLogin` is handled as a choice.
 
