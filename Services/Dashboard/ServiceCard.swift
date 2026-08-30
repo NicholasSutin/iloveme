@@ -50,7 +50,8 @@ final class ServiceCard: Identifiable {
 
     // MARK: Connect
 
-    /// `.pastedToken` path: the user brings a long-lived token from the provider.
+    /// `.pastedToken` path: the user brings a token from the provider. Overwrites
+    /// whatever is stored, so replacing an expired token needs no disconnect first.
     func savePastedToken(_ raw: String) async {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

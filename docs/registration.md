@@ -2,17 +2,18 @@
 
 Client IDs are public and safe to commit; paste them into that service's
 `Services/Providers/<Name>Provider.swift` (`OAuthConfig(clientID: …)`).
-**Secrets are not.** They never enter the app or this repo — they go into the
-future Worker via `wrangler secret put`.
+**Secrets are not.** Since Strava's removal no integration needs one: every
+remaining service connects by device flow or by a token the user pastes, so the
+Worker holds no secrets and serves only the public site.
 
-## Where we paused — 2026-08-28
+## Where things stand — 2026-08-30
 
 | Service | Registered | Client ID in code | Works? |
 |---|---|---|---|
 | **GitHub** | yes, device flow enabled | yes | **yes — done** |
-| **Strava** | yes | yes (`175321`) | **no — unresolved, see the experiment below** |
+| **Pinterest** | yes, approved | yes (`1606244`) | wired — paste a token to confirm |
 | **Notion** | no | n/a | not started (needs no client ID) |
-| **Pinterest** | no | no | not started — blocked on a privacy policy + domain |
+| **Strava** | was, then removed | n/a | **removed 2026-08-29 — see below** |
 
 ---
 
@@ -70,44 +71,91 @@ needing an Apple Watch were deliberately excluded — see the note in
 it in the API Settings Dashboard, then recover from `git log` — commit `4871d9d` has
 the provider, relay client, `webRedirect` affordance and Worker routes intact.
 
-## Pinterest
-
-**Privacy policy URL: `https://iloveme.nicholassutin.com/privacy`** — served by the
-Worker (`worker/src/privacy.ts`). It must be DEPLOYED before Pinterest will accept
-the registration; `npm run deploy:production` in `worker/`, which needs no secrets.
-Set a real `CONTACT_EMAIL` in `worker/wrangler.jsonc` first — it is shown publicly.
- — NOT STARTED
+## Pinterest — APPROVED 2026-08-30
 
 https://developers.pinterest.com/apps/
-- Create app: ILoveMe, personal/prototyping purpose
-- Redirect URI: `iloveme://oauth`
-- Request Trial access (reads real boards/pins; 1,000 req/day cap)
+- App ID: **`1606244`** — this is the client ID, public, already in
+  `PinterestProvider.swift`.
+- Redirect URI: `iloveme://oauth` (registered, but unused — see below)
+- Privacy policy: `https://iloveme.nicholassutin.com/privacy`, served by the Worker
+  (`worker/src/privacy.ts`). Deploying that is what unblocked the review.
 
-### Blocked on: a privacy policy at a real domain
+### The app secret is not needed — do not paste it anywhere
 
-Pinterest reviews every app before granting any access, and wants a reachable
-privacy-policy URL plus a working site.
+The portal shows an app secret alongside the App ID. It only signs the OAuth token
+exchange, and this app does no OAuth: it takes a token generated in the portal.
+Leave the secret in the portal. Putting it in the app would embed a credential in a
+binary; putting it in the Worker would resurrect the authenticated relay that
+Strava's removal deleted.
 
-**Use `nicholassutin.com`.** It is a live site with real content, which is what a
-reviewer is checking for; `s5.design` is currently empty, and a parked-looking
-domain invites a rejection round-trip on a process that is already slow and manual.
-A personal site is also the truthful representation here — this app reads Nick's
-own boards, for Nick. It matches the homepage already registered with GitHub and
-Strava.
+### Which token to generate: the production-limited one
 
-Keep `s5.design` for infrastructure if you want the separation — it is the better
-home for the Worker (`api.s5.design`) than a portfolio domain, and that keeps
-personal brand and app plumbing apart.
+The portal offers two buttons. **Use "Generate Access Tokens" — not the sandbox
+variant.**
 
-The privacy policy itself is short for this app: read-only access, everything stays
-on device, tokens in the iOS Keychain, no analytics, no third-party sharing, and
-disconnecting in-app deletes the token. (When the Worker exists it relays token
-exchange only and stores nothing.)
+| | Production (limited) | Sandbox |
+|---|---|---|
+| Scopes | `pins:read`, `boards:read`, `user_accounts:read` | all open scopes |
+| Data | the real account's boards and pins | synthetic sandbox entities |
+| Base URL | `api.pinterest.com` | `api-sandbox.pinterest.com` |
 
-### Shortcut once approved
-Trial apps can mint a test token in the portal **without OAuth**. So Pinterest
-likely never needs the Worker — give `PinterestProvider` a `.pastedToken`
-affordance like Notion's and paste the test token in.
+Sandbox's wider scope list is not an advantage here. `PinterestProvider` calls
+exactly two endpoints — `GET /v5/boards` and `GET /v5/boards/{id}/pins` — and the
+production token's `boards:read` + `pins:read` already cover both. The extra
+sandbox scopes buy endpoints the app never calls, against boards that do not exist,
+at a base URL the provider does not point to. Pinterest is explicit that the two
+are not interchangeable:
+
+> "You cannot use the Sandbox token in your production environment, nor can you use
+> a production token for Sandbox."
+> — `docs/pinterest-docs/sandbox.md`
+
+### The catch: it expires after 24 hours
+
+Pinterest classes portal-generated tokens as **test** tokens:
+
+> "Once your app is approved for Trial access you can generate a token to test the
+> API without setting up the Oauth flow. Test tokens expire after 24 hours."
+> — `docs/pinterest-docs/connect-app.md`
+
+Do not confuse this with the 30 days (`expires_in: 2592000`) quoted throughout
+`set-up-authentication-and-authorization.md` — that figure describes tokens issued
+by the OAuth flow, not by the portal button.
+
+**So the paste path verifies the integration; it is not a standing connection.**
+Left alone, the Pinterest card is red more often than green.
+
+The app handles the expiry honestly rather than pretending otherwise: a 401 shows
+**"Token expired — paste a new one"** with the paste field already visible beneath
+it, because `.failed` counts as idle in `ServiceStatus`. Pasting overwrites the
+stored token, so no disconnect step.
+
+### The durable alternative, and what it costs
+
+A connection that survives needs the authorization-code flow: a 30-day access token
+plus a *continuous* refresh token (60-day, refreshable indefinitely, per
+`set-up-authentication-and-authorization.md`). Refreshing requires HTTP Basic with
+the client secret, so it requires a server.
+
+That server is the relay Worker deleted with Strava. Bringing Pinterest to a
+standing connection means restoring roughly what commit `4871d9d` held — an
+authenticated Worker route, a shared token split between Cloudflare and the app
+binary, and refresh plumbing — for one integration. It also needs a URL scheme back
+in `Info.plist` for the redirect leg.
+
+**Not yet.** Generate a 24-hour token first and confirm the boards render. Whether
+the data is worth a server is a judgement best made after seeing the card populated
+once, and that costs nothing to find out.
+
+### To connect
+
+1. Portal → **Manage** → **Configure** tab → **Generate Access Tokens** (the
+   production button, not sandbox).
+2. Copy the token immediately — the portal will not show it again.
+3. Run the app → Pinterest card → paste into **Access token** → Save.
+
+Boards appear with their pin counts, expandable to pin titles. Expect a 401 the
+next day; that is the documented behaviour, not a regression.
 
 ---
 

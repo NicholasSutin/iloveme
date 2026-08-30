@@ -53,6 +53,11 @@ enum ServiceStatus: Equatable, Sendable {
         // since an upstream error body could in principle carry something sensitive.
         Logger(subsystem: "com.nick.iloveme", category: "service")
             .error("\(String(describing: error))")
+        // Pinterest's tokens expire by design, so 401 is a routine state here, not
+        // an anomaly — and its body is JSON that says nothing useful once truncated
+        // to chip width. `.failed` is idle, so the paste field is already showing
+        // underneath: the chip only has to say which field to fill.
+        if let http = error as? HTTPError, http.status == 401 { return .failed("Token expired — paste a new one") }
         let description = error.localizedDescription
         if description.localizedCaseInsensitiveContains("entitlement") { return .failed("Entitlement missing") }
         if description.localizedCaseInsensitiveContains("authoriz") { return .failed("Not authorized") }

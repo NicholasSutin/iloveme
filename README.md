@@ -163,27 +163,33 @@ Status per card: Not configured / Not connected / Connecting / Connected / error
 handles an incoming URL. GitHub's device flow has no redirect leg, and Notion and
 Pinterest paste tokens. The `iloveme://` scheme existed only for Strava's browser
 redirect and was removed with it — `git log` has both if a redirect provider returns.
+Pinterest's portal requires a redirect URI to register at all, so `iloveme://oauth`
+is on file there; it is simply never exercised.
 
-### Live wiring status (2026-08-28)
+### Live wiring status (2026-08-30)
 Endpoints verified against official docs — see docs/api-notes.md (injection-screened: PASS).
 Reality check: Notion and Pinterest both require a client_secret for full OAuth, so
-both use pasted long-lived tokens instead. GitHub is secret-free via the device flow.
-No integration now needs a server-side secret.
+both take a pasted token instead. Notion's does not expire; Pinterest's does. GitHub
+is secret-free via the device flow. No integration needs a server-side secret.
 
-Updated 2026-08-29. Full detail and next actions in **docs/registration.md**.
+Full detail and next actions in **docs/registration.md**.
 
 | Service | Registered | Client ID | Works? | Next action |
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
-| **Pinterest** | no | — | no | Pinterest app review |
+| **Pinterest** | yes, approved | `1606244` | wired | paste a token (expires in 24h) |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
 - **Notion**: paste-in path implemented and ready. Use an internal-integration token,
   NOT OAuth — reasoning recorded in docs/registration.md.
-- **Pinterest**: data client complete. The privacy policy is live at
-  iloveme.nicholassutin.com/privacy, so it is blocked purely on Pinterest's app
-  review. Once approved, Trial can mint a test token without OAuth.
+- **Pinterest**: approved 2026-08-30. Connects by pasting a token generated in the
+  developer portal — the **production-limited** one, not the sandbox one, which only
+  works against `api-sandbox.pinterest.com`. The app secret is never needed. Caveat:
+  portal tokens are *test* tokens and expire after **24 hours**, so this verifies the
+  integration rather than standing it up. A lasting connection needs OAuth refresh,
+  which needs the client secret, which needs the relay Worker back. See
+  docs/registration.md for that trade, and docs/pinterest-docs/ for the sources.
 - **Strava was removed 2026-08-29.** Its auth worked end to end, but Strava's
   Developer Program requires a paid subscription on the account owning the API
   application, so it returned 403 `Application/Status/Inactive` for all data. The
@@ -207,9 +213,11 @@ synchronized roots. Confirmed by building both targets with an invalid `.swift` 
 planted in `worker/src/` — both succeeded and it never reached a compile step.
 
 ### Not built (deliberate)
-- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. Harmless
-  today: GitHub, Notion and Pinterest tokens are long-lived or non-expiring. It was
-  needed only for Strava's ~6h expiry, and the relay that performed it went with
-  Strava.
+- **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. GitHub's
+  and Notion's tokens do not expire, so nothing breaks there. **Pinterest's expires
+  in 24 hours** — and refreshing it needs the client secret, hence a server, hence
+  the relay that went with Strava. Rather than pretend otherwise, a 401 surfaces as
+  "Token expired — paste a new one" with the paste field already beneath it. That
+  keeps Pinterest a verify-it-works integration until the server is worth building.
 - Notion OAuth (access token chosen instead — see docs/registration.md)
 - HealthKit background delivery — see the entitlement note above.

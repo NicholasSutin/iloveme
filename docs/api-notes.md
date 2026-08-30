@@ -223,5 +223,5 @@ query($from: DateTime, $to: DateTime) {
 - **GitHub** is the only provider usable purely client-side today: register an OAuth app, enable the **device flow**, request `read:user` (+ `offline_access` for refresh tokens), and never touch a secret.
 - **Strava, Notion, Pinterest** all require the client secret at the token endpoint (Strava: form param; Notion/Pinterest: HTTP Basic) and offer **no PKCE public-client or device flow** on their public APIs → each needs a tiny token-exchange/refresh **backend proxy** (a single serverless function per provider is enough), or:
   - **Notion personal-use shortcut:** skip OAuth; let the user paste an internal-connection token / Personal Access Token (expires up to 1 year).
-  - **Pinterest personal-use shortcut:** Trial-access apps can generate a test token from the developer portal without OAuth (Trial can read real boards/pins; 1,000 requests/day cap).
+  - **Pinterest personal-use shortcut:** Trial-access apps can generate a test token from the developer portal without OAuth (Trial can read real boards/pins; 1,000 requests/day cap). **These test tokens expire after 24 hours** — connect-app.md, mirrored in docs/pinterest-docs/. The 30-day `expires_in` quoted in §3.4 applies to OAuth-issued tokens only.
   - Strava has no documented secret-free shortcut; its secret must live server-side.

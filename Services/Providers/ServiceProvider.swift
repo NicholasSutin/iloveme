@@ -5,7 +5,9 @@ import Foundation
 enum ConnectAffordance: Sendable {
     /// RFC 8628 device flow — no secret, no redirect leg.
     case deviceFlow
-    /// The user pastes a long-lived token they generated on the provider's site.
+    /// The user pastes a token they generated on the provider's site. It may or
+    /// may not expire — Notion's does not, Pinterest's does — so the paste field
+    /// stays reachable from `.failed`, which `ServiceStatus.isIdle` guarantees.
     case pastedToken(prompt: String)
     /// Cannot be connected from the device at all, with the reason to show.
     case unavailable(reason: String)
