@@ -129,7 +129,7 @@ Source of truth: https://developers.pinterest.com/docs/getting-started/set-up-au
 
 ### 3.2 Secret / PKCE / device flow
 - Token exchange **requires the client secret** (HTTP Basic). **No mention of PKCE anywhere** in the auth docs or the OpenAPI spec; no device flow.
-- **Conclusion: none — needs a backend proxy.** (Trial-access apps can also generate a test token in the developer portal "without setting up the OAuth flow" — usable for personal prototyping; see 3.5.)
+- **Conclusion: none — needs a backend proxy** *for third-party users*. For a single-user app owned by the same account, the **client-credentials grant** sidesteps the proxy entirely: one Basic-auth POST to `/v5/oauth/token`, 30-day token, acting "on behalf of the current app owner". Verified in the official OpenAPI spec (v5.28.0) — `boards/list` and `boards/list_pins` both list `client_credentials` in `security`, and `boards:read_secret`/`pins:read_secret` are in its scope list. Requires 2FA on the account. (Trial-access apps can also generate a portal test token with no OAuth, but those expire in **24 hours** — see 3.5.)
 
 ### 3.3 Scopes (read boards + pins)
 From the official OpenAPI spec securitySchemes (pinterest/api-description v5) and the auth docs:

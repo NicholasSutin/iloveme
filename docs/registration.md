@@ -88,74 +88,82 @@ Leave the secret in the portal. Putting it in the app would embed a credential i
 binary; putting it in the Worker would resurrect the authenticated relay that
 Strava's removal deleted.
 
-### Which token to generate: the production-limited one
+### Which token: client credentials, not the portal button
 
-The portal offers two buttons. **Use "Generate Access Tokens" — not the sandbox
-variant.**
+Three ways to get a token. The portal button is the obvious one and the worst one.
 
-| | Production (limited) | Sandbox |
-|---|---|---|
-| Scopes | `pins:read`, `boards:read`, `user_accounts:read` | all open scopes |
-| Data | the real account's boards and pins | synthetic sandbox entities |
-| Base URL | `api.pinterest.com` | `api-sandbox.pinterest.com` |
+| | Portal "Generate Access Tokens" | **Client credentials** | Authorization code |
+|---|---|---|---|
+| Lifetime | **24 hours** | **30 days** | 30 days + refresh |
+| Effort | click | one `curl` | browser consent + server |
+| Needs the secret? | no | yes, on your laptop only | yes, on a server |
+| Re-paste cadence | daily | ~monthly | never |
 
-Sandbox's wider scope list is not an advantage here. `PinterestProvider` calls
-exactly two endpoints — `GET /v5/boards` and `GET /v5/boards/{id}/pins` — and the
-production token's `boards:read` + `pins:read` already cover both. The extra
-sandbox scopes buy endpoints the app never calls, against boards that do not exist,
-at a base URL the provider does not point to. Pinterest is explicit that the two
-are not interchangeable:
-
-> "You cannot use the Sandbox token in your production environment, nor can you use
-> a production token for Sandbox."
-> — `docs/pinterest-docs/sandbox.md`
-
-### The catch: it expires after 24 hours
-
-Pinterest classes portal-generated tokens as **test** tokens:
+Pinterest classes portal tokens as *test* tokens:
 
 > "Once your app is approved for Trial access you can generate a token to test the
 > API without setting up the Oauth flow. Test tokens expire after 24 hours."
 > — `docs/pinterest-docs/connect-app.md`
 
-Do not confuse this with the 30 days (`expires_in: 2592000`) quoted throughout
-`set-up-authentication-and-authorization.md` — that figure describes tokens issued
-by the OAuth flow, not by the portal button.
+Do not confuse that with the 30 days (`expires_in: 2592000`) quoted throughout
+`set-up-authentication-and-authorization.md` — that describes tokens issued by the
+OAuth endpoint, which is what the other two columns use.
 
-**So the paste path verifies the integration; it is not a standing connection.**
-Left alone, the Pinterest card is red more often than green.
+### Why client credentials fits this app exactly
 
-The app handles the expiry honestly rather than pretending otherwise: a 401 shows
-**"Token expired — paste a new one"** with the paste field already visible beneath
-it, because `.failed` counts as idle in `ServiceStatus`. Pasting overwrites the
-stored token, so no disconnect step.
+Pinterest's own description:
 
-### The durable alternative, and what it costs
+> "the access token generated from this grant type is on behalf of the current app
+> owner … Automate API calls for your developer account by setting up CRON jobs."
+> — `docs/pinterest-docs/set-up-authentication-and-authorization.md`
 
-A connection that survives needs the authorization-code flow: a 30-day access token
-plus a *continuous* refresh token (60-day, refreshable indefinitely, per
-`set-up-authentication-and-authorization.md`). Refreshing requires HTTP Basic with
-the client secret, so it requires a server.
+The app owner *is* the only user. There is no third party to authorize, so the
+authorization-code flow's whole purpose — consent on behalf of someone else — is
+overhead here. No browser leg, no redirect, no code, no server.
 
-That server is the relay Worker deleted with Strava. Bringing Pinterest to a
-standing connection means restoring roughly what commit `4871d9d` held — an
-authenticated Worker route, a shared token split between Cloudflare and the app
-binary, and refresh plumbing — for one integration. It also needs a URL scheme back
-in `Info.plist` for the redirect leg.
+**Verified against Pinterest's official OpenAPI spec (v5.28.0,
+`github.com/pinterest/api-description`, `v5/openapi.json`)** — both endpoints this
+provider calls accept the grant:
 
-**Not yet.** Generate a 24-hour token first and confirm the boards render. Whether
-the data is worth a server is a judgement best made after seeing the card populated
-once, and that costs nothing to find out.
+```
+GET /boards                  → security: [pinterest_oauth2: [boards:read],
+                                          client_credentials: [boards:read]]
+GET /boards/{board_id}/pins  → security: [pinterest_oauth2: [boards:read, pins:read],
+                                          client_credentials: [boards:read, pins:read]]
+```
 
-### To connect
+Requirement: **two-factor auth must be enabled** on the Pinterest account, which
+Pinterest mandates for this grant type.
 
-1. Portal → **Manage** → **Configure** tab → **Generate Access Tokens** (the
-   production button, not sandbox).
-2. Copy the token immediately — the portal will not show it again.
-3. Run the app → Pinterest card → paste into **Access token** → Save.
+### The command
 
-Boards appear with their pin counts, expandable to pin titles. Expect a 401 the
-next day; that is the documented behaviour, not a regression.
+Run it on your machine; the secret never leaves it. `read -rs` keeps it off screen
+and out of shell history.
+
+```bash
+read -rs "?Pinterest app secret: " S && curl -sX POST https://api.pinterest.com/v5/oauth/token -u "1606244:$S" --data-urlencode 'grant_type=client_credentials' --data-urlencode 'scope=boards:read,boards:read_secret,pins:read,pins:read_secret'; unset S
+```
+
+`boards:read` alone covers public boards; the `_secret` scopes add secret boards and
+pins, and are available to this grant (confirmed in the spec's `securitySchemes`).
+Drop them if you would rather the dashboard not surface secret boards.
+
+The response's `access_token` carries a `pinc` prefix. Paste it into the app →
+Pinterest card → **Access token** → Save. Re-run monthly.
+
+### If it ever needs to be permanent
+
+The authorization-code flow gives a 30-day access token plus a *continuous* refresh
+token (60-day, refreshable indefinitely). Refreshing needs HTTP Basic with the
+client secret, so it needs a server — the relay Worker deleted with Strava, plus a
+URL scheme back in `Info.plist` for the redirect leg.
+
+**Twelve pastes a year is cheaper than a server.** Revisit only if that stops being
+true.
+
+The app handles expiry honestly meanwhile: a 401 shows **"Token expired — paste a
+new one"** with the paste field already visible beneath it, because `.failed` counts
+as idle in `ServiceStatus`. Pasting overwrites, so there is no disconnect step.
 
 ---
 

@@ -178,18 +178,18 @@ Full detail and next actions in **docs/registration.md**.
 |---|---|---|---|---|
 | **GitHub** | yes, device flow on | in place | **yes — done** | none |
 | **Notion** | no | n/a | no | create the internal integration, paste token |
-| **Pinterest** | yes, approved | `1606244` | wired | paste a token (expires in 24h) |
+| **Pinterest** | yes, approved | `1606244` | wired | paste a client-credentials token |
 
 - **GitHub**: fully live. Device flow implemented, cancellable, single-flight.
 - **Notion**: paste-in path implemented and ready. Use an internal-integration token,
   NOT OAuth — reasoning recorded in docs/registration.md.
-- **Pinterest**: approved 2026-08-30. Connects by pasting a token generated in the
-  developer portal — the **production-limited** one, not the sandbox one, which only
-  works against `api-sandbox.pinterest.com`. The app secret is never needed. Caveat:
-  portal tokens are *test* tokens and expire after **24 hours**, so this verifies the
-  integration rather than standing it up. A lasting connection needs OAuth refresh,
-  which needs the client secret, which needs the relay Worker back. See
-  docs/registration.md for that trade, and docs/pinterest-docs/ for the sources.
+- **Pinterest**: approved 2026-08-30. Connects by pasting a **client-credentials**
+  token — one `curl`, 30-day lifetime, secret stays on the laptop. Not the portal's
+  "Generate Access Tokens" button, whose *test* tokens expire in **24 hours**. The
+  grant acts on behalf of the app owner, who is the only user, so the
+  authorization-code flow's consent leg would be pure overhead; both endpoints
+  accept it per Pinterest's OpenAPI spec. Command and scopes in docs/registration.md;
+  sources in docs/pinterest-docs/.
 - **Strava was removed 2026-08-29.** Its auth worked end to end, but Strava's
   Developer Program requires a paid subscription on the account owning the API
   application, so it returned 403 `Application/Status/Inactive` for all data. The
@@ -214,10 +214,10 @@ planted in `worker/src/` — both succeeded and it never reached a compile step.
 
 ### Not built (deliberate)
 - **Token refresh.** `OAuthToken.isExpired` exists but nothing calls it. GitHub's
-  and Notion's tokens do not expire, so nothing breaks there. **Pinterest's expires
-  in 24 hours** — and refreshing it needs the client secret, hence a server, hence
-  the relay that went with Strava. Rather than pretend otherwise, a 401 surfaces as
-  "Token expired — paste a new one" with the paste field already beneath it. That
-  keeps Pinterest a verify-it-works integration until the server is worth building.
+  and Notion's tokens do not expire, so nothing breaks there. **Pinterest's lasts 30
+  days** — refreshing automatically needs the client secret, hence a server, hence
+  the relay that went with Strava. Twelve re-pastes a year is the cheaper trade, so
+  a 401 surfaces as "Token expired — paste a new one" with the paste field already
+  beneath it.
 - Notion OAuth (access token chosen instead — see docs/registration.md)
 - HealthKit background delivery — see the entitlement note above.

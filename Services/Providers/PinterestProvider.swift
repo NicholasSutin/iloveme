@@ -12,21 +12,24 @@ struct PinterestProvider: ServiceProvider {
         token: "https://api.pinterest.com/v5/oauth/token",
         scopes: ["boards:read", "pins:read"])   // unused while the token is pasted
 
-    /// **The production-limited token, not the sandbox one.** The portal offers
-    /// both. Sandbox tokens are only valid against `api-sandbox.pinterest.com`, a
-    /// base URL this provider never calls, and Pinterest states the two are not
-    /// interchangeable in either direction. The production token's scopes
-    /// (`pins:read`, `boards:read`, `user_accounts:read`) cover both calls below.
+    /// **Paste a client-credentials token, not the portal button's.** The portal's
+    /// "Generate Access Tokens" mints a *test* token that expires in 24 hours —
+    /// fine to prove the card works, useless as a connection. The client-credentials
+    /// grant is one `curl` against `/v5/oauth/token` and lasts 30 days; Pinterest
+    /// describes it as acting "on behalf of the current app owner", which is exactly
+    /// what a single-user dashboard wants. The client secret stays on the laptop
+    /// that runs the curl — it never reaches this binary or the repo.
     ///
-    /// **It expires after 24 hours.** Pinterest classes portal-generated tokens as
-    /// *test* tokens — the deliberate cost of skipping OAuth. So this affordance
-    /// verifies the integration against real boards; it is not a standing
-    /// connection. A lasting one needs the authorization-code flow with a refresh
-    /// token, which needs the client secret, which needs a server. That trade is
-    /// recorded in docs/registration.md rather than made silently here.
+    /// Both calls below accept it: `boards/list` and `boards/list_pins` each list
+    /// `client_credentials` in their `security` block in Pinterest's official
+    /// OpenAPI spec (v5.28.0). Recipe and scopes in docs/registration.md.
     ///
-    /// Expiry therefore shows up as a 401 on most loads. `ServiceStatus` names it
-    /// rather than printing the raw JSON body.
+    /// Sandbox tokens are a dead end here regardless — they are only valid against
+    /// `api-sandbox.pinterest.com`, which `base` below is not, and Pinterest states
+    /// the two are not interchangeable in either direction.
+    ///
+    /// 30 days still means expiry is a routine state, so `ServiceStatus` names the
+    /// resulting 401 rather than printing its raw JSON body.
     let connect = ConnectAffordance.pastedToken(prompt: "Access token")
 
     var placeholderRows: [Row] { [Board]().rows }
